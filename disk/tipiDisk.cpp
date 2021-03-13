@@ -1397,7 +1397,7 @@ bool dsrPiHardwareNop() {
 // suggests only one message should be active at a time.
 // TODO: There is a note in the docs that says messages MUST be received,
 // so maybe there is a queue or a block?
-
+// NOTE: For receive, the /input/ R0 length is ignored.
 bool handleSendMsg(unsigned char *buf, int len) {
     if (isNetvars) {
         // meant for netvars
@@ -1482,6 +1482,7 @@ bool directRecvMsg() {
 
     // TODO temp: TIPI currently ignores R0, so
     // we set it to 0 here to force the write to always happen
+    // NOTE: Matt thinks is is not likely to be changed.
     len = 0;
 
     // anyway, here we make sure we don't send more than the message
@@ -1510,6 +1511,7 @@ bool directVRecvMsg() {
 
     // TODO temp: TIPI currently ignores R0, so
     // we set it to 0 here to force the write to always happen
+    // NOTE: Matt thinks is is not likely to be changed.
     len = 0;
 
     if ((len == 0) || (len > rxMessageLen)) {
@@ -1518,7 +1520,7 @@ bool directVRecvMsg() {
     }
 
     if (len > 0) {
-        // TODO part two - need to check the range again since we faked it above
+        // TODO part two - need to check the range here since we faked it above
         if (off+len > 0x3fff) {
             debug_write("Illegal VDP access in VSendMsg, truncating (address >%04X, len >%04X)", off, len);
             off &= 0x3fff;
@@ -2372,9 +2374,6 @@ bool handleUdp(unsigned char *buf, int len) {
 // TODO: if we changed the FiadDisk object to work with streams instead of files directly,
 // then we could feed it file streams and buffer streams, and share all that parsing code
 // more easily...
-
-// TODO: as implemented so far, writes are all disallowed, but I need to be able to write
-// to PI.CONFIG for the config tool to work...
 
 // constructor
 TipiWebDisk::TipiWebDisk() : FiadDisk() {

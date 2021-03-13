@@ -163,7 +163,6 @@ HANDLE hWakeupEvent=NULL;									// used to sleep the CPU when not busy
 volatile signed long cycles_left=0;							// runs the CPU throttle
 volatile unsigned long total_cycles=0;						// used for interrupts
 unsigned long speech_cycles=0;								// used to sync speech
-bool total_cycles_looped=false;
 bool bDebugAfterStep=false;									// force debug after step
 bool bStepOver=false;										// whether step over is on
 int nStepCount=0;											// how many instructions to step before breakpoints work again (usually 1)
@@ -355,8 +354,7 @@ int retrace_count=0;								// count on the 60hz timer
 int PauseInactive;									// what to do when the window is inactive
 int WindowActive;                                   // true if the Classic99 window is active
 int SpeechEnabled;									// whether speech is enabled
-volatile int CPUThrottle;							// Whether or not the CPU is throttled
-volatile int SystemThrottle;						// Whether or not the VDP is throttled
+volatile int CPUThrottle;							// What the system throttle is set to
 
 time_t STARTTIME, ENDTIME;
 volatile long ticks;
@@ -625,8 +623,11 @@ void ReadConfig() {
 	GetPrivateProfileString("emulation", "AVIFilename", AVIFileName, AVIFileName, 256, INIFILE);
 	// CPU Throttling? CPU_OVERDRIVE, CPU_NORMAL, CPU_MAXIMUM
 	CPUThrottle=	GetPrivateProfileInt("emulation",	"cputhrottle",			CPUThrottle,	INIFILE);
-	// VDP Throttling? VDP_CPUSYNC, VDP_REALTIME
-	SystemThrottle=	GetPrivateProfileInt("emulation",	"systemthrottle",		SystemThrottle,	INIFILE);
+        // migration
+        if ((CPUThrottle!=SYSTEM_NORMAL)&&(CPUThrottle!=CPU_SLOW)&&(CPUThrottle!=CPU_OVERDRIVE)&&(CPUThrottle!=SYSTEM_MAXIMUM)) {
+            debug_write("Reset system throttle setting to normal for new version.");
+            CPUThrottle = SYSTEM_NORMAL;
+        }
 	// Proper CPU throttle (cycles per frame) - ipf is deprecated
 	max_cpf=		GetPrivateProfileInt("emulation",	"maxcpf",				max_cpf,		INIFILE);
 	cfg_cpf = max_cpf;
@@ -943,7 +944,6 @@ void SaveConfig() {
 
 	WritePrivateProfileString(	"emulation",	"AVIFilename",			AVIFileName,				INIFILE);
 	WritePrivateProfileInt(		"emulation",	"cputhrottle",			CPUThrottle,				INIFILE);
-	WritePrivateProfileInt(		"emulation",	"systemthrottle",		SystemThrottle,				INIFILE);
 	if (0 != max_cpf) {
 		WritePrivateProfileInt(	"emulation",	"maxcpf",				max_cpf,					INIFILE);
 	}
@@ -1400,8 +1400,7 @@ int WINAPI WinMain( HINSTANCE hInst, HINSTANCE hInPrevInstance, LPSTR lpCmdLine,
 	strcpy(AVIFileName, "C:\\Classic99.AVI");	// default movie filename
 	nCartGroup=0;				// Cartridge group (0-apps, 1-games, 2-user)
 	nCart=-1;					// loaded cartridge (-1 is none)
-	CPUThrottle=CPU_NORMAL;		// throttle the CPU
-	SystemThrottle=VDP_CPUSYNC;	// throttle the VDP
+	CPUThrottle=SYSTEM_NORMAL;  // throttle the CPU
 	drawspeed=0;				// no frameskip
 	FilterMode=2;				// super 2xSAI
 	nDefaultScreenScale=1;		// 1x by default
@@ -3230,7 +3229,7 @@ void do1()
 		// When we have peripheral card interrupts, they are masked on CRU[1]
 		if ((((VDPINT)&&(CRU[2]))||((timer9901IntReq)&&(CRU[3]))) && ((pCurrentCPU->GetST()&0x000f) >= 1) && (!skip_interrupt)) {
 //			if (cycles_left >= 22) {					// speed throttling
-				pCurrentCPU->TriggerInterrupt(0x0004,2);    // TODO: what level do I want to throw here? They are all mask 2, right?
+				pCurrentCPU->TriggerInterrupt(0x0004,1);    // Should be a level 1 interrupt
 //			}
             // the if cycles_left doesn't work because if we don't take it now, we'll
             // execute other instructions (at least one more!) instead of stopping...
@@ -3455,7 +3454,7 @@ void do1()
 		if (key[VK_F11]) {
 			key[VK_F11]=0;
 
-			if (CPUThrottle==CPU_MAXIMUM) {
+			if (CPUThrottle==SYSTEM_MAXIMUM) {
 				// running in fast forward, return to normal
 				DoPlay();
 			} else {
@@ -3715,13 +3714,13 @@ void do1()
 			// repeat counter). If so, we only allow the increment at a much slower rate
 			// based on the interrupt timer (for real time slowdown).
 			// This doesn't work in XB!
-			if ((CPUThrottle!=CPU_NORMAL) && (slowdown_keyboard) && (in == 0xdcc2) && ((keyboard==KEY_994A)||(keyboard==KEY_994A_PS2)) && (GROMBase[0].GRMADD == 0x2a62)) {
+			if ((CPUThrottle>CPU_SLOW) && (slowdown_keyboard) && (in == 0xdcc2) && ((keyboard==KEY_994A)||(keyboard==KEY_994A_PS2)) && (GROMBase[0].GRMADD == 0x2a62)) {
 				if ((ticks%10) != 0) {
 					WriteMemoryByte(0x830D, ReadMemoryByte(0x830D, ACCESS_FREE) - 1, false);
 				}
 			}
 			// but this one does (note it will trigger for ANY bank-switched cartridge that uses this code at this address...)
-			if ((CPUThrottle!=CPU_NORMAL) && (slowdown_keyboard) && (in == 0xdcc2) && ((keyboard==KEY_994A)||(keyboard==KEY_994A_PS2)) && (GROMBase[0].GRMADD == 0x6AB6) && (xb)) {
+			if ((CPUThrottle>CPU_SLOW) && (slowdown_keyboard) && (in == 0xdcc2) && ((keyboard==KEY_994A)||(keyboard==KEY_994A_PS2)) && (GROMBase[0].GRMADD == 0x6AB6) && (xb)) {
 				if ((ticks%10) != 0) {
 					WriteMemoryByte(0x8300, ReadMemoryByte(0x8300, ACCESS_FREE) - 1, false);
 				}
@@ -3734,7 +3733,7 @@ void do1()
 			unsigned long old=total_cycles;
 			InterlockedExchangeAdd((LONG*)&total_cycles, nLocalCycleCount);
 			if ((old&0x80000000)&&(!(total_cycles&0x80000000))) {
-				total_cycles_looped=true;
+                // we looped on total CPU cycles
 				speech_cycles=total_cycles;
 			} else {
 				// check speech
@@ -4435,11 +4434,12 @@ void SpeechBufferCopy() {
 //	debug_write("Read/Write bytes: %5d/%5d", iRead-lastRead, nSpeechTmpPos*2);
 	lastRead=iRead;
 
+    // times 2 for samples to byte (int16 type)
 	if (SUCCEEDED(speechbuf->Lock(iWrite, nSpeechTmpPos*2, (void**)&ptr1, &len1, (void**)&ptr2, &len2, DSBLOCK_FROMWRITECURSOR))) 
 	{
 		memcpy(ptr1, SpeechTmp, len1);
-		if (len2 > 0) {							// handle wraparound
-			memcpy(ptr2, &SpeechTmp[len1/2], len2);
+		if (len2 > 0) {							    // handle wraparound
+			memcpy(ptr2, &SpeechTmp[len1/2], len2); // div by 2 because int16 type
 		}
 		speechbuf->Unlock(ptr1, len1, ptr2, len2);	
 		
@@ -6257,8 +6257,7 @@ extern double dacupdatedistance;
 void __cdecl TimerThread(void *)
 {
 	MY_LARGE_INTEGER nStart, nEnd, nFreq, nAccum;
-	static unsigned long old_total_cycles=0;
-	static int oldSystemThrottle=0, oldCPUThrottle=0;
+	static int oldCPUThrottle=0;
 	static int nVDPFrames = 0;
 	bool bDrawDebug=false;
 	long nOldCyclesLeft = 0;
@@ -6279,17 +6278,15 @@ void __cdecl TimerThread(void *)
 	nAccum.QuadPart=0;
 
 	while (quitflag==0) {
-		// Check if the system speed has changed
-		// This is actually kind of lame - we should use a message or make the vars global
-		if ((CPUThrottle != oldCPUThrottle) || (SystemThrottle != oldSystemThrottle)) {
+		// Check if the system speed has changed, and reset time
+		if (CPUThrottle != oldCPUThrottle) {
 			oldCPUThrottle=CPUThrottle;
-			oldSystemThrottle=SystemThrottle;
-			old_total_cycles=total_cycles;
 			nAccum.QuadPart=0;
 		}
 		if (hzRate != oldHzRate) {
 			LARGE_INTEGER due;
 			due.QuadPart=-1;		// now, essentially
+            // note we are triggering at 8ms right now - faster triggers help balance out the latency
 			if (!SetWaitableTimer(timer, &due, 8, NULL, NULL, FALSE)) {	// we can wake up at any speed, the loop below works out real time
                 debug_write("The waitable timer failed - code %d", GetLastError());
             }
@@ -6305,25 +6302,23 @@ void __cdecl TimerThread(void *)
 		} else {
 			// if hzRate==50, then it's 20000us per frame
 			// if hzRate==60, then it's 16666us per frame - .6. overall this runs a little slow, but it is within the 5% tolerance (99.996%)
-			// our actual speeds are 50hz and 62hz, 62hz is 99% of 62.6hz, calculated via the datasheet
-			// 62hz is 16129us per frame (fractional is .03, irrelevant here, so it works out nicer too)
 			switch (CPUThrottle) {
 				default:
-                    // TODO: using the old trick of triggering early (twice as often) helps, but still wrong
-					WaitForSingleObject(timer, 1000);	// this is 16.12, rounded to 16, so 99% of 99% is still 99% (99.2% of truth)
+                    // we timeout after 1 second just to be alive, but otherwise we
+                    // wake on the periodic timer configured above
+					if (WAIT_TIMEOUT == WaitForSingleObject(timer, 1000)) {
+                        debug_write("Wait timer timed out...");
+                    }
 					break;
-				case CPU_OVERDRIVE:
-					Sleep(1);	// minimal sleep for load's sake
-					break;
-				case CPU_MAXIMUM:
-					// We do the exchange here since the loop below may not run
-					InterlockedExchange((LONG*)&cycles_left, max_cpf*100);
+
+				case SYSTEM_MAXIMUM:
+                    // In this mode we want to run even the VDP as quick as possible,
+                    // but we do a minimum sleep for load reasons
+                    Sleep(1);
 					break;
 			}
 
-			if (SystemThrottle == VDP_CPUSYNC) {
-				nVDPFrames=0;
-			}
+			nVDPFrames=0;
 			if (FALSE == QueryPerformanceCounter((LARGE_INTEGER*)&nEnd)) {
 				debug_write("Failed to query performance counter, error 0x%08x", GetLastError());
 				MessageBox(myWnd, "Unable to run timer system.", "Classic99 Error", MB_ICONSTOP|MB_OK);
@@ -6341,72 +6336,42 @@ void __cdecl TimerThread(void *)
 			nAccum.QuadPart+=(((nEnd.QuadPart-nStart.QuadPart)*1000000i64)/nFreq.QuadPart);	
 			nStart.QuadPart=nEnd.QuadPart;					// don't lose any time
 			
-			// see function header comments for these numbers (62hz or 60hz : 50hz)
-			nFreq.QuadPart=(hzRate==HZ60) ? /*16129i64*/ 16666i64 : 20000i64;
+			// how many microseconds for our hz rate?
+			nFreq.QuadPart=(hzRate==HZ60) ? 16666i64 : 20000i64;
+            nVDPFrames = nAccum.QuadPart / nFreq.QuadPart;
+            nAccum.QuadPart %= nFreq.QuadPart;
 
-			while (nAccum.QuadPart >= nFreq.QuadPart) {
-				nVDPFrames++;
-				// this makes us run the right number of frames, and should account for fractions better
-				nAccum.QuadPart-=nFreq.QuadPart;
-
-				if (max_cpf > 0) {
-					// to prevent runaway, if the CPU is not executing for some reason, don't increment
-					// this handles the case where Windows is blocking the main thread (which doesn't happen anymore)
-					if ((nOldCyclesLeft != cycles_left) || (max_cpf == 1)) {
-						if (CPUThrottle==CPU_NORMAL) {			// don't increment cycles_left if running at infinite speed or paused
-							InterlockedExchangeAdd((LONG*)&cycles_left, max_cpf);
-						} else {
-							InterlockedExchange((LONG*)&cycles_left, max_cpf*50);
-						}
-						nOldCyclesLeft = cycles_left;
-					}
-				}
-				if ((nVDPFrames > 10) && (max_cpf > 0)) {
-					// more than a 1/6 second behind - just drop it
-					nAccum.QuadPart = 0;
-					InterlockedExchange((LONG*)&cycles_left, max_cpf);
-					nVDPFrames = 1;
-				}
+			if ((nVDPFrames > 10) && (max_cpf > 0)) {
+				// more than a 1/6 second behind - just drop it
+				nAccum.QuadPart = 0;
+				nVDPFrames = 1;
 			}
-			SetEvent(hWakeupEvent);		// wake up CPU if it's sleeping
 
-			if (total_cycles_looped) {
-				total_cycles_looped=false;
-				old_total_cycles=0;		// mistiming, but survives the wrap.
-				// very very fast machines may someday break this loop
-			}
+            // So now we have a whole number of VDP frames to run. For this, we want to:
+            // - trigger the CPU for one scanline worth of cycles. Since this is not
+            //   an even multiple of anything we need to track the slack. In overdrive
+            //   this would be faster than normal. In slow this would be slower.
+            // - trigger the GPU for one scanline worth of cycles. Maybe it gets its own thread.
+            // - trigger the VDP for one scanline of drawing. Presumably in parallel
+            // - trigger the 9901 for one scanline of timing
+            // - trigger speech to generate one scanline of speech
+            // - trigger sound to generate one scanline of sound
+            // - trigger SID to generate one scanline of SID
+            // - wait for everything to finish, then do the next scanline
+            // - at end of frame, trigger the blit and then start over
 
 			// copy over the speech buffer -- only need to do this once
 			// if our timing is right this should always work out about right
 			SpeechBufferCopy();
 
-			// This set the VDP processing rate. If VDP overdrive is active,
-			// then we base it on the CPU cycles. If not, then we base it on
-			// real time.
-			if (SystemThrottle == VDP_CPUSYNC) {
-				// this side is used in normal mode
-				while (old_total_cycles+(hzRate==HZ50?DEFAULT_50HZ_CPF:DEFAULT_60HZ_CPF) <= total_cycles) {
-					Counting();					// update counters & VDP interrupt
-					old_total_cycles+=(hzRate==HZ50?DEFAULT_50HZ_CPF:DEFAULT_60HZ_CPF);
-					bDrawDebug=true;
-				}
-			} else {
-				// this side is used in overdrive
-				if (nVDPFrames > 0) {
-					// run one frame every time we're able (and it's needed)
-					Counting();					// update counters & VDP interrupt
-					nVDPFrames--;
-					bDrawDebug=true;
-					vdpForceFrame();
-				}
+            // Run the VDP system
+			while (nVDPFrames > 0) {
+				// run one frame every time we're able (and it's needed)
+				Counting();					// update counters & VDP interrupt
+				nVDPFrames--;
+				bDrawDebug=true;
+				vdpForceFrame();
 			}
-
-            // TODO: a hack of sorts, but DAC and sound update can end up running at different rates,
-            // leading to out of sync audio. So empty the dac buffer, no matter how much we used
-//            if (dac_pos < 100) {
-//                debug_write("dac_pos at %d", dac_pos);
-//                dac_pos = 0;
-//            }
 
 			if ((bDrawDebug)&&(dbgWnd)) {
 				if (max_cpf > 0) {
@@ -6426,12 +6391,10 @@ void __cdecl TimerThread(void *)
 ////////////////////////////////////////////////////////////////
 // Timer calls this function each tick
 ////////////////////////////////////////////////////////////////
-//extern SID *g_mySid;
 void Counting()
 {
 	ticks++;
 	retrace_count++;
-	//end_of_frame=1;		// one frame of time has elapsed, do our processing
 
 	// update sound buffer -- eventually we should instead move this to generate from the
 	// scanline based VDP (the one not written yet, hehe)
@@ -6444,90 +6407,6 @@ void Counting()
 	}
 	if ((NULL != sidbuf) && (NULL != sid_update)) {
 		UpdateSoundBuf(sidbuf, sid_update, &sidDat);
-#if 0
-// HACK - REMOVE ME - CONVERT SID MUSIC TO 9919?
-// TO USE THIS HACK, BREAKPOINT IN THE SID DLL IN THE RESET
-// FUNCTION, AND GET THE ADDRESS OF mySid. THEN STEP OUT,
-// AND ASSIGN THAT ADDRESS TO g_mySid. The rest will just work.
-// Or implement GetSidPointer in the DLL. Sadly I've lost the code.
-//volume - voice.envelope.envelope_counter
-//
-//noise is generated on a voice when the voice.waveform == 0x08 (combinations do nothing anyway)
-//voice.waveform.freq is the frequency counter
-//
-//FREQUENCY = (REGISTER VALUE * CLOCK)/16777216 Hz
-//where CLOCK=1022730 for NTSC systems and CLOCK=985250 for PAL systems.
-//
-//the TI version clock is exactly 1000000, so it's 
-//FREQUENCY = REGISTER_VALUE / 16.777216
-//
-//The TI 9919 sound chip uses:
-//FREQUENCY = 111860.78125 / REGISTER_VALUE
-//and inversely, 
-//REGISTER_VALUE = 111860.78125 / FREQUENCY
-		if (NULL == g_mySid) {
-            if (NULL != GetSidPointer) {
-                g_mySid = GetSidPointer();
-            }
-        } else {
-			static int nDiv[3] = {1,1,1};		// used for scale adjust when a note is too far off (resets if all three channels are quiet)
-			bool bAllQuiet=true;
-			bool bNoise = false;
-
-			sidbuf->SetVolume(DSBVOLUME_MIN);	// don't play audibly
-			for (int i=0; i<3; i++) {
-				// pitch
-				double nFreq = g_mySid->voice[i]->wave.freq / 16.777216;
-				int code = (int)((111860.78125 / nFreq) / nDiv[i]);
-
-				// volume (is just the envelope enough? is there a master volume?)
-				// looks like this is 8-bit volume, convert to 4-bit attenuation
-                // TODO: is it linear instead of logarithmic?
-				int nVol = ((255-g_mySid->voice[i]->envelope.envelope_counter)>>4);
-				if (nVol != 0x0f) bAllQuiet = false;
-				int ctrl = 0x80+(0x20*i);	
-
-				// check for noise
-				if (g_mySid->voice[i]->wave.waveform & 0x08) {
-					// this is noise
-					bNoise = true;
-					// mute the tone and don't worry about adjusting it
-					wsndbyte((ctrl+0x10) | 0x0f);
-					// pick a noise - 5,6,7 are the white noise tones. Periodic may be useful too but for now...
-					if ((code == 0) || (code > 0x180)) {
-						code = 0xe7;
-					} else if (code > 0xc0) {
-						code = 0xe6;
-					} else {
-						code = 0xe5;
-					}
-					wsndbyte(code);
-					// set the volume on the noise channel
-					wsndbyte(0xf0 | nVol);
-				} else {
-					// this is tone
-					if (code > 0x3ff) {
-						//code=0;		// lowest possible pitch
-						nDiv[i]*=2;		// scale it an octave up
-						if (nDiv[i]>4) nDiv[i]=4;		// this is about the limit
-						code/=2;
-						if (code > 0x3ff) code=0;		// if still, get it next time
-					}
-					wsndbyte(ctrl|(code&0xf));
-					wsndbyte((code>>4)&0xff);
-					wsndbyte((ctrl+0x10) |  nVol);
-				}
-			}
-			if (bNoise == false) {
-				// make sure the noise channel is silent when not active
-				wsndbyte(0xff);
-			}
-			if (bAllQuiet) {
-				// reset the pitch divisors
-				nDiv[0] = nDiv[1] = nDiv[2] = 1;
-			}
-		}
-#endif
 	}
 
 	LeaveCriticalSection(&csAudioBuf);

@@ -71,7 +71,6 @@ public:		// type protection later. Make work today.
 	Word ST;											// Status register
 	Word in,D,S,Td,Ts,B;								// Opcode interpretation
 	int nCycleCount;									// Used in CPU throttle
-	Byte nPostInc[2];									// Register number to increment, ORd with 0x80 for 2, or 0x40 for 1
 	const char *pType;
 
 	CPU990Fctn opcode[65536];							// CPU Opcode address table
@@ -98,8 +97,6 @@ public:		// type protection later. Make work today.
 	virtual Byte GetSafeByte(int x, int bank);
 
 	virtual	void TriggerInterrupt(Word vector, Byte level);
-
-	void post_inc(int nWhich);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Get addresses for the destination and source arguments

@@ -407,8 +407,17 @@ CString BaseDisk::BuildFilename(FileInfo *pFile) {
 	if (csTmp.Right(1) != "\\") {
 		csTmp+='\\';
 	}
-	// append requested filename
-	csTmp+=pFile->csName;
+
+    // handle the TI splits - TI wants '.' as a path separator
+    // and '/' for (well, nothing, but we'll say extensions)
+    CString csWork = pFile->csName;
+    csWork.Replace('\\', '\x1');    // temporary store for backslash
+    csWork.Replace('.', '\\');      // make periods into path separators
+    csWork.Replace('/', '.');       // make slashes into extension periods
+    csWork.Replace('\x1', '.');     // same, but for the backslashes
+
+    // append requested filename
+	csTmp+=csWork;
 
 	return csTmp;
 }

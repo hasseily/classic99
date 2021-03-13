@@ -43,11 +43,11 @@
 // 64k of memory. All reads and writes are word (16-bit) oriented.
 // Byte access is simulated within the CPU by reading or writing
 // the entire word, and manipulating only the requested byte.
-// This is not currently emulated here. The CPU uses external
-// RAM for all user registers. There are 16 user registers, R0-R15,
-// and the memory base for these registers may be anywhere in
-// memory, set by the Workspace Pointer. The CPU also has a Program
-// Counter and STatus register internal to it.
+// The CPU uses external RAM for all user registers. 
+// There are 16 user registers, R0-R15, and the memory base for 
+// these registers may be anywhere in memory, set by the Workspace 
+// Pointer. The CPU also has a Program Counter and STatus register 
+// internal to it.
 // This emulation generates a lookup table of addresses for each
 // opcode. It's not currently intended for use outside of Classic99
 // and there may be problems with dependancy on other parts of the
@@ -1949,11 +1949,7 @@ void CPU9900::op_idle()
     // This sets A0-A2 to 010, and pulses CRUCLK until an interrupt is received
     // Although it's not supposed to be used on the TI, at least one game
     // (Slymoids) uses it - perhaps to sync with the VDP? So we'll emulate it someday
-
-    // TODO: we can't do this today. Everything is based on CPU cycles, which means
-    // when the CPU stops, so does the VDP, 9901, etc, so no interrupt ever comes in
-    // to wake up the system. This will be okay when the VDP is the timing source.
-//  SetIdle();
+    StartIdle();
 }
 
 void CPU9900::op_rset()
@@ -3005,7 +3001,7 @@ void CPU9900::buildcpu()
         if (z&1) BStatusLookup[i]|=BIT_OP;              // set bit if an odd number
     }
 
-    nCycleCount = 0;
+    ResetCycleCount();
 }
 
 ///////////////////////////////////////////////////////////////////////////

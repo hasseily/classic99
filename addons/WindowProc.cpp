@@ -1545,28 +1545,28 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					InterlockedExchange((LONG*)&cycles_left, 0);
 
 					// Now just used to set the check boxes correctly
-					if ((CPUThrottle == CPU_NORMAL) && (SystemThrottle == VDP_CPUSYNC) && (max_cpf > SLOW_CPF)) {
+					if (CPUThrottle == SYSTEM_NORMAL) {
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_NORMAL, MF_CHECKED);
 	                    szDefaultWindowText = AppName;
 					} else {
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_NORMAL, MF_UNCHECKED);
 					}
 
-					if ((CPUThrottle == CPU_NORMAL) && (SystemThrottle == VDP_CPUSYNC) && (max_cpf == SLOW_CPF)) {
+					if (CPUThrottle == CPU_SLOW) {
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUSLOW, MF_CHECKED);
 						szDefaultWindowText="Classic99 - Slow CPU";
 					} else {
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUSLOW, MF_UNCHECKED);
 					}
 
-					if ((CPUThrottle == CPU_OVERDRIVE) && (SystemThrottle == VDP_REALTIME)) {
+					if (CPUThrottle == CPU_OVERDRIVE) {
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUOVERDRIVE, MF_CHECKED);
 						szDefaultWindowText="Classic99 - CPU Overdrive";
 					} else {
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUOVERDRIVE, MF_UNCHECKED);
 					}
 
-					if ((CPUThrottle == CPU_MAXIMUM) && (SystemThrottle == VDP_CPUSYNC)) {
+					if (CPUThrottle == SYSTEM_MAXIMUM) {
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_SYSTEMMAXIMUM, MF_CHECKED);
 						szDefaultWindowText="Classic99 - System Maximum";
 					} else {
@@ -1577,8 +1577,7 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_CPUTHROTTLING_NORMAL:
-				CPUThrottle=CPU_NORMAL;
-				SystemThrottle=VDP_CPUSYNC;
+				CPUThrottle=SYSTEM_NORMAL;
 				if (lParam != 1) max_cpf=cfg_cpf;   // lParam(1) means internal message, don't change
 				resetDAC();		// otherwise we will be way out of sync
 				SetSoundVolumes();		// unmute in case it was in slow mode
@@ -1591,25 +1590,22 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_CPUTHROTTLING_CPUSLOW:
-				CPUThrottle=CPU_NORMAL;
-				SystemThrottle=VDP_CPUSYNC;
+				CPUThrottle=CPU_SLOW;
 				max_cpf=SLOW_CPF;
-				resetDAC();		// just to empty it, it won't be filled in slow mode
+				resetDAC();		    // just to empty it, it won't be filled in slow mode
 				MuteAudio();
 				PostMessage(myWnd, WM_COMMAND, ID_OPTIONS_CPUTHROTTLING, 1);
 				break;
 
 			case ID_CPUTHROTTLING_CPUOVERDRIVE:
 				CPUThrottle=CPU_OVERDRIVE;
-				SystemThrottle=VDP_REALTIME;
 				max_cpf=cfg_cpf;
-				SetSoundVolumes();		// unmute in case it was in slow mode
+				SetSoundVolumes();	// unmute in case it was in slow mode
 				PostMessage(myWnd, WM_COMMAND, ID_OPTIONS_CPUTHROTTLING, 1);
 				break;
 
 			case ID_CPUTHROTTLING_SYSTEMMAXIMUM:
-				CPUThrottle=CPU_MAXIMUM;
-				SystemThrottle=VDP_CPUSYNC;
+				CPUThrottle=SYSTEM_MAXIMUM;
 				max_cpf=cfg_cpf;
 				SetSoundVolumes();		// unmute in case it was in slow mode
 				PostMessage(myWnd, WM_COMMAND, ID_OPTIONS_CPUTHROTTLING, 1);
@@ -2237,18 +2233,6 @@ INT_PTR CALLBACK OptionsBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 					drawspeed=SendDlgItemMessage(hwnd, IDC_SLDFRAMESKIP, TBM_GETPOS, 0, 0);
 					slowdown_keyboard=IsDlgButtonChecked(hwnd, IDC_CHKSLOWKEY)?1:0;
 					
-					if (IsDlgButtonChecked(hwnd, IDC_THROTTLECPU)) {
-						CPUThrottle=CPU_NORMAL;
-						SystemThrottle=VDP_CPUSYNC;
-					}
-					if (IsDlgButtonChecked(hwnd, IDC_UNTHROTTLECPU)) {
-						CPUThrottle=CPU_OVERDRIVE;
-						SystemThrottle=VDP_REALTIME;
-					}
-					if (IsDlgButtonChecked(hwnd, IDC_UNTHROTTLEALL)) {
-						CPUThrottle=CPU_MAXIMUM;
-						SystemThrottle=VDP_CPUSYNC;
-					}
 					{
 						// SAMS
 						int old_sams_enabled=sams_enabled;
@@ -2343,15 +2327,6 @@ INT_PTR CALLBACK OptionsBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 			SendDlgItemMessage(hwnd, IDC_CHKJOYST, BM_SETCHECK, fJoy?BST_CHECKED:BST_UNCHECKED, 0);
 			SendDlgItemMessage(hwnd, IDC_CHKSLOWKEY, BM_SETCHECK, slowdown_keyboard?BST_CHECKED:BST_UNCHECKED, 0);
 			
-			// default
-			CheckRadioButton(hwnd, IDC_THROTTLECPU, IDC_UNTHROTTLEALL, IDC_THROTTLECPU);
-			if ((CPUThrottle == CPU_OVERDRIVE) && (SystemThrottle == VDP_REALTIME)) {
-				CheckRadioButton(hwnd, IDC_THROTTLECPU, IDC_UNTHROTTLEALL, IDC_UNTHROTTLECPU);
-			}
-			if ((CPUThrottle == CPU_MAXIMUM) && (SystemThrottle == VDP_CPUSYNC)) {
-				CheckRadioButton(hwnd, IDC_THROTTLECPU, IDC_UNTHROTTLEALL, IDC_UNTHROTTLEALL);
-			}
-
 			CheckRadioButton(hwnd, IDC_JOY1KEY, IDC_JOY1JOY2, IDC_JOY1KEY+joy1mode);
 			CheckRadioButton(hwnd, IDC_JOY2KEY, IDC_JOY2JOY2, IDC_JOY2KEY+joy2mode);
 			CheckRadioButton(hwnd, IDC_AMS_0K, IDC_AMS_1024K, sams_enabled?sams_size+IDC_AMS_128K:IDC_AMS_0K);
