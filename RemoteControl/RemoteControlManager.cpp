@@ -322,7 +322,7 @@ void RemoteControlManager::sendOutput(UINT16 width, UINT16 height, UINT8 *pFrame
 				1.0,								// image ratio
 				g_gamelink.want_mouse,
 				framedataRC,
-				systemMemory);					// Main memory pointer
+				staticCPU);					// Main memory pointer
 		}
 	}
 }
