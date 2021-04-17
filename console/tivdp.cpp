@@ -56,6 +56,7 @@
 #include "..\2xSaI\2xSaI.h"
 #include "..\FilterDLL\sms_ntsc.h"
 #include "cpu9900.h"
+#include "../RemoteControl/RemoteControlManager.h"
 
 // 16-bit 0rrrrrgggggbbbbb values
 //int TIPALETTE[16]={ 
@@ -557,6 +558,7 @@ void VDPmain()
 
 	while (quitflag==0)
 	{
+		RCManager.getInput();	// RIK: Get input from RemoteControl
 		if ((ret=WaitForMultipleObjects(1, Video_hdl, false, 100)) != WAIT_TIMEOUT)
 		{
 			if (WAIT_FAILED==ret)
@@ -564,6 +566,8 @@ void VDPmain()
 
 			if (WAIT_OBJECT_0 == ret) {
 				doBlit();
+				// RIK: Send output to RemoteControl
+				RCManager.sendOutput(256+16, 192+16, (UINT8*)framedata);
                 continue;
 			}
 

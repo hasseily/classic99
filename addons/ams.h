@@ -93,4 +93,7 @@ Byte* WriteMemoryBlock(Word address, void* vData, Word length);
 void RestoreAMS(unsigned char *pData, int nLen);
 void PreloadAMS(unsigned char *pData, int nLen);
 
+extern Byte* systemMemory;		// MaxMapperPages * MaxPageSize
+extern Byte* staticCPU;			// 0x10000 (64k) for the base memory
+
 #endif // AMS_H

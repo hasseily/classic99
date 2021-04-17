@@ -90,6 +90,7 @@
 #include <math.h>
 #include <shellapi.h>
 #include <atlstr.h>
+#include <memory>
 
 #include "..\resource.h"
 #include "tiemul.h"
@@ -110,6 +111,7 @@
 #include "..\addons\mpd.h"
 #include "..\addons\ubergrom.h"
 #include "..\debugger\dbghook.h"
+#include "..\RemoteControl\RemoteControlManager.h"
 
 extern void rampVolume(LPDIRECTSOUNDBUFFER ds, long newVol);       // to reduce up/down clicks
 
@@ -229,7 +231,6 @@ Byte VDPMemInited[128*1024];				// track VDP mem
 bool g_bCheckUninit = false;				// track reads from uninitialized RAM
 bool nvRamUpdated = false;					// if cartridge RAM is written to (also needs an NVRAM type to be saved)
 
-extern Byte staticCPU[0x10000];				// main memory
 Byte *CPU2=NULL;				            // Cartridge space bank-switched (ROM >6000 space, 8k blocks, XB, 379, SuperSpace and MBX ROM), sized by xbmask
 Byte mbx_ram[1024];							// MBX cartridge RAM (1k)
 Byte ROMMAP[65536];							// Write-protect map of CPU space
@@ -1233,6 +1234,7 @@ int WINAPI WinMain( HINSTANCE hInst, HINSTANCE hInPrevInstance, LPSTR lpCmdLine,
 	}
 	DeleteDC(myDC);
 
+	// RIK pass the framedata (or framedata2) to GC
 	framedata=(unsigned int*)malloc((512+16)*(192+16)*4);	// This is where we draw everything - 8 pixel border - extra room left for 80 column mode
 	framedata2=(unsigned int*)malloc((256+16)*4*(192+16)*4*4);// used for the filters - 16 pixel border on SAI and 8 horizontal on TV (x2), HQ4x is the largest
 
@@ -2356,7 +2358,6 @@ void LoadOneImg(struct IMG *pImg, char *szFork) {
 	if ((pImg->nType == TYPE_KEYS) || (pImg->nType == TYPE_OTHER) || (NULL != pData)) {
 		// finally ;)
 		debug_write("Loading file %sfrom %s: Type %c, Bank %d, Address 0x%04X, Length 0x%04X", szFilename,  pszFrom, pImg->nType, pImg->nBank, pImg->nLoadAddr, nLen);
-
 		switch (pImg->nType) {
 			case TYPE_GROM:
 				if (pImg->nLoadAddr+nLen > 65536) {
@@ -2786,6 +2787,23 @@ void findXBbank() {
         } else {
             debug_write("No ROM header found in paged cart, setting bank to 0.");
         }
+		// RIK: Here parse the header and follow the linked list
+		// as described in http://www.unige.ch/medecine/nouspikel/ti99/headers.htm#header%20summary
+		// This would give the program name which we can send to RemoteControl
+		const UINT xbase = 8192 * xbBank;
+		if (CPU2[xbase] == 0xAA)
+		{
+			// this is a standard header. Let's get the program name
+			// Need to substract 0x6000 because the cartridge will be loaded at that address
+			const UINT16 ptrProgList = CPU2[xbase + 6] * 0x100 + CPU2[xbase + 7] - 0x6000;
+			if (ptrProgList > 0)
+			{
+				const UINT8 namelength = CPU2[ptrProgList + 4];
+				char* progname = new char[namelength];
+				memcpy_s(progname, namelength, &CPU2[ptrProgList + 5], namelength);
+				RCManager.setLoadedProgram(progname, namelength);
+			}
+		}
     }
 }
 

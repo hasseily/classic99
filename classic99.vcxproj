@@ -61,13 +61,14 @@
     </SccLocalPath>
     <SccProvider>
     </SccProvider>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>NotSet</CharacterSet>
-    <PlatformToolset>v141_xp</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -84,7 +85,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
-    <PlatformToolset>v141_xp</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -102,7 +103,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseArm64|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
-    <PlatformToolset>v141_xp</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseArm64|x64'" Label="Configuration">
@@ -118,7 +119,7 @@
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Template|Win32'">
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Template|x64'" Label="Configuration">
     <PlatformToolset>v141</PlatformToolset>
@@ -984,6 +985,8 @@
     <ClCompile Include="disk\diskclass.cpp" />
     <ClCompile Include="disk\FiadDisk.cpp" />
     <ClCompile Include="disk\ImageDisk.cpp" />
+    <ClCompile Include="RemoteControl\Gamelink.cpp" />
+    <ClCompile Include="RemoteControl\RemoteControlManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="addons\F18A.h" />
@@ -997,6 +1000,8 @@
     <ClInclude Include="disk\cf7Disk.h" />
     <ClInclude Include="disk\TICCDisk.h" />
     <ClInclude Include="disk\tipiDisk.h" />
+    <ClInclude Include="RemoteControl\Gamelink.h" />
+    <ClInclude Include="RemoteControl\RemoteControlManager.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="2xSaI\2xSaI.h" />
     <ClInclude Include="debugger\bug99.h" />

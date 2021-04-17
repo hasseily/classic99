@@ -100,6 +100,12 @@
     <ClCompile Include="disk\tipiDisk.cpp">
       <Filter>disk</Filter>
     </ClCompile>
+    <ClCompile Include="RemoteControl\RemoteControlManager.cpp">
+      <Filter>RemoteControl</Filter>
+    </ClCompile>
+    <ClCompile Include="RemoteControl\Gamelink.cpp">
+      <Filter>RemoteControl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
@@ -177,6 +183,12 @@
     </ClInclude>
     <ClInclude Include="disk\tipiDisk.h">
       <Filter>disk</Filter>
+    </ClInclude>
+    <ClInclude Include="RemoteControl\RemoteControlManager.h">
+      <Filter>RemoteControl</Filter>
+    </ClInclude>
+    <ClInclude Include="RemoteControl\Gamelink.h">
+      <Filter>RemoteControl</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -293,6 +305,9 @@
     </Filter>
     <Filter Include="roms\makecart">
       <UniqueIdentifier>{b82ab3f7-a217-474c-bccb-4a009e26dce5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RemoteControl">
+      <UniqueIdentifier>{97c634b2-a3ce-4b13-9960-3d515408e408}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

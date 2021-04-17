@@ -9,6 +9,7 @@
 
 #include "tiemul.h"
 #include "ams.h"
+#include "../RemoteControl/RemoteControlManager.h"
 
 // temporary hack - might be right, needs testing
 // This will enable 32MB AMS (or whatever is configured below!)
@@ -56,8 +57,11 @@ static AmsMemorySize memorySize = Mem128k;		// Default to 128k AMS Card
 static MapperMode mapperMode = Map;				// Default to mapping addresses
 
 static Word mapperRegisters[MaxMapperRegisters] = { 0 };
-static Byte systemMemory[MaxMapperPages * MaxPageSize] = { 0 };
-Byte staticCPU[0x10000] = { 0 };				// 64k for the base memory
+// RIK: Set the systemMemory and staticCPU via the RemoteControl SHM mechanism
+int systemMemorySize = MaxMapperPages * MaxPageSize;
+int staticCPUSize = 0x10000;
+Byte* systemMemory;		// MaxMapperPages * MaxPageSize
+Byte* staticCPU;				// 0x10000 (64k) for the base memory
 
 static bool mapperRegistersEnabled = false;
 
@@ -78,6 +82,10 @@ void InitializeMemorySystem(EmulationMode cardMode)
 	debug_write("Initializing AMS mode %d, size %dk", cardMode, 256*4096);
 #endif
 
+	LPBYTE unifiedmem = RCManager.initializeMem(staticCPUSize + systemMemorySize); // One unified shm
+	staticCPU = unifiedmem;
+	systemMemory = unifiedmem + staticCPUSize;
+
 	// 1. Save chosen card mode
 	emulationMode = cardMode;
 
@@ -97,8 +105,8 @@ void InitializeMemorySystem(EmulationMode cardMode)
 #endif
 
 	if (!bWarmBoot) {
-		memrnd(systemMemory, sizeof(systemMemory));
-		memrnd(staticCPU, sizeof(staticCPU));
+		memrnd(systemMemory, systemMemorySize);
+		memrnd(staticCPU, staticCPUSize);
 	}
 }
 
@@ -121,8 +129,8 @@ void ShutdownMemorySystem()
 		mapperRegisters[reg] = (reg << 8);
 	}
 
-	memrnd(systemMemory, sizeof(systemMemory));
-	memrnd(staticCPU, sizeof(staticCPU));
+	memrnd(systemMemory, systemMemorySize);
+	memrnd(staticCPU, staticCPUSize);
 }
 
 void SetMemoryMapperMode(MapperMode mode)
@@ -326,7 +334,7 @@ Byte ReadMemoryByte(Word address, READACCESSTYPE rmw)
 
 	if (bIsRAM && bIsMappable)
 	{
-        if (mappedAddress <= sizeof(systemMemory)) {
+        if (mappedAddress <= systemMemorySize) {
 		    if (bTrueAccess) {
 			    // Check for breakpoints
 			    for (int idx=0; idx<nBreakPoints; idx++) {
@@ -389,7 +397,7 @@ void WriteMemoryByte(Word address, Byte value, bool allowWrite)
 
 	if (bIsMapMode && bIsMappable)
 	{
-        if (mappedAddress <= sizeof(systemMemory)) {
+        if (mappedAddress <= systemMemorySize) {
 		    // duplicated code, refactor this...
 		    for (int idx=0; idx<nBreakPoints; idx++) {
 			    switch (BreakPoints[idx].Type) {
@@ -499,7 +507,7 @@ void RestoreAMS(unsigned char *pData, int nLen) {
 
 void PreloadAMS(unsigned char *pData, int nLen) {
     // another hack, but doesn't do RLE. Not sure this will have long term use
-    if (nLen > sizeof(systemMemory)) nLen = sizeof(systemMemory);
+    if (nLen > systemMemorySize) nLen = systemMemorySize;
     memcpy(systemMemory, pData, nLen);
 }
 
