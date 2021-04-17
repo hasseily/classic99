@@ -339,7 +339,7 @@ int cpucount, cpuframes;							// CPU counters for timing
 int timercount;										// Used to estimate runtime
 int CtrlAltReset = 0;								// if true, require control+alt+equals
 int gDontInvertCapsLock = 0;						// if true, caps lock is not inverted
-const char *szDefaultWindowText="Classic99";		// used to set Window back to normal after a change
+const char *szDefaultWindowText="Gamelink99";		// used to set Window back to normal after a change
 
 int timer9901;										// 9901 interrupt timer
 int timer9901Read;                                  // the read-back register
@@ -1272,7 +1272,7 @@ int WINAPI WinMain( HINSTANCE hInst, HINSTANCE hInPrevInstance, LPSTR lpCmdLine,
 		}
 	}
 
-	myWnd = CreateWindow("TIWndClass", "Classic99", g_dwMyStyle, CW_USEDEFAULT, CW_USEDEFAULT, 536, 446, NULL, NULL, hInstance, NULL);
+	myWnd = CreateWindow("TIWndClass", "Gamelink99", g_dwMyStyle, CW_USEDEFAULT, CW_USEDEFAULT, 536, 446, NULL, NULL, hInstance, NULL);
 	if (NULL == myWnd)
 	{	
 		err=GetLastError();
@@ -1403,7 +1403,7 @@ int WINAPI WinMain( HINSTANCE hInst, HINSTANCE hInPrevInstance, LPSTR lpCmdLine,
 
 	// Print some initial debug
 	debug_write("---");
-	debug_write("Classic99 version %s (C)2002-2019 M.Brent", VERSION);
+	debug_write("Gamelink99 version %s (C)2002-2019 M.Brent", VERSION);
 	debug_write("ROM files included under license from Texas Instruments");
 
 	// copy out the command line
@@ -1478,8 +1478,9 @@ int WINAPI WinMain( HINSTANCE hInst, HINSTANCE hInPrevInstance, LPSTR lpCmdLine,
 
         // turn off the menu
         SetMenuMode(true, false);
-    } else {
-        strcpy(AppName, "Classic99 " VERSION);
+	}
+	else {
+		strcpy(AppName, "Gamelink99 " VERSION);
     }
     // set the title
     szDefaultWindowText = AppName;
@@ -3512,7 +3513,7 @@ void do1()
 						SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_CPUOVERDRIVE, 0);
 					}
 
-					if (PasteString==PasteIndex) SetWindowText(myWnd, "Classic99 - Pasting (ESC Cancels)");	
+					if (PasteString==PasteIndex) SetWindowText(myWnd, "Gamelink99 - Pasting (ESC Cancels)");	
 
 					if (key[VK_ESCAPE]) {
 						// the rest of the cleanup will happen below
@@ -6570,7 +6571,7 @@ void TriggerBreakPoint(bool bForce) {
         }
     }
 
-	SetWindowText(myWnd, "Classic99 - Breakpoint. F1 - Continue, F2 - Step, F3 - Step Over");
+	SetWindowText(myWnd, "Gamelink99 - Breakpoint. F1 - Continue, F2 - Step, F3 - Step Over");
 	max_cpf=0;
 	MuteAudio();
 	InterlockedExchange(&cycles_left, 0);

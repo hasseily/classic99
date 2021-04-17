@@ -359,7 +359,7 @@ Byte ReadMemoryByte(Word address, READACCESSTYPE rmw)
 		TriggerBreakPoint();
 		char buf[128];
 		sprintf(buf, "Breakpoint - reading uninitialized CPU memory at >%04X", mappedAddress);
-		MessageBox(myWnd, buf, "Classic99 Debugger", MB_OK);
+		MessageBox(myWnd, buf, "Gamelink99 Debugger", MB_OK);
 	}
 	return staticCPU[mappedAddress];
 }

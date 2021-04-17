@@ -23,7 +23,7 @@
 // Local Definitions
 //------------------------------------------------------------------------------
 
-#define SYSTEM_NAME		"Classic99"
+#define SYSTEM_NAME		"Gamelink99"
 #define PROTOCOL_VER		4
 #define GAMELINK_MUTEX_NAME		"DWD_GAMELINK_MUTEX_R4"
 #define GAMELINK_MMAP_NAME		"DWD_GAMELINK_MMAP_R4"

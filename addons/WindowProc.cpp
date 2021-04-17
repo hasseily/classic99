@@ -1095,8 +1095,9 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_HELP_ABOUT:
-				sprintf(szTemp, "Classic99 %s\n"\
-								"©1994-2017\n\n"\
+				sprintf(szTemp, "Gamelink99 %s\n"\
+								"©1994-2021\n\n"\
+								"A restricted license fork of Classic99\n"\
 								"By Mike Brent (Tursi)\n"\
 								"ROM data included under license from Texas Instruments.\n\n"\
 								"So many people in the TI community make this all worthwhile!\n\n"\
@@ -1111,10 +1112,11 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 								"Shay Green for the TV Filter\n"\
 								"Keyboard map by Ron Reuter - www.mainbyte.com\n"\
 								"RamusM for the ECM sprite handling\n\n"\
+								"Gamelink code by Rikkles\n\n"\
 								"tursi@harmlesslion.com\n"\
 								"http://harmlesslion.com/software/classic99", 
 						VERSION);
-				MessageBox(myWnd, szTemp, "Classic99 About", MB_OK);
+				MessageBox(myWnd, szTemp, "Gamelink99 About", MB_OK);
 				break;
 
 			case ID_HELP_KBMAP: 
@@ -1203,7 +1205,7 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				    resetDAC();
 				    readroms();								// reload the real ROMs
 				    if (NULL != pCurrentHelpMsg) {
-					    szDefaultWindowText="Classic99 - See Help->Known Issues for this cart";
+					    szDefaultWindowText="Gamelink99 - See Help->Known Issues for this cart";
 					    SetWindowText(myWnd, szDefaultWindowText);
 				    } else {
                         szDefaultWindowText = AppName;
@@ -1249,7 +1251,7 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_FILE_QUIT:
-				if (IDYES == MessageBox(myWnd, "Are you sure you want to quit?", "Classic99 go ByeBye?", MB_YESNO)) {
+				if (IDYES == MessageBox(myWnd, "Are you sure you want to quit?", "Gamelink99 go ByeBye?", MB_YESNO)) {
 					MuteAudio();
 					if (!GetWindowRect(myWnd, &gWindowRect)) {
 						gWindowRect.left = -1;
