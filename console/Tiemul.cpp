@@ -1234,7 +1234,6 @@ int WINAPI WinMain( HINSTANCE hInst, HINSTANCE hInPrevInstance, LPSTR lpCmdLine,
 	}
 	DeleteDC(myDC);
 
-	// RIK pass the framedata (or framedata2) to GC
 	framedata=(unsigned int*)malloc((512+16)*(192+16)*4);	// This is where we draw everything - 8 pixel border - extra room left for 80 column mode
 	framedata2=(unsigned int*)malloc((256+16)*4*(192+16)*4*4);// used for the filters - 16 pixel border on SAI and 8 horizontal on TV (x2), HQ4x is the largest
 
