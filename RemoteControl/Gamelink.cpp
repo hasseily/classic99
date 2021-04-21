@@ -564,6 +564,40 @@ void GameLink::UpdatePeekInfo(sSharedMMapPeek_R2* peek, const UINT8* p_sysmem)
 		// write data
 		peek->data[pindex] = data;
 	}
+
+	// HACK: For Realms of Antiquity, some maps are slanted, and xpos is really based on x and y
+	// GridCarto doesn't support calculating xpos using y, so we need to do it here before sending it to GC
+	if (g_p_shared_memory->program_hash[3] == 0x503359be) // This is Realms of Antiquity
+	{
+		UINT8 xpos = p_sysmem[0x1a009];
+		const UINT8 ypos = p_sysmem[0x1a007];
+		const UINT8 slant = p_sysmem[0x1a831];
+		const UINT8 rows = p_sysmem[0x1a82b];
+		switch (slant)
+		{
+		case 0:	// left
+			xpos = xpos - ypos + (rows - 1);
+			break;
+		case 2:	// normal
+			break;
+		case 4:	// right
+			xpos = xpos + ypos;
+			break;
+		default:
+			break;
+		}
+		// find where we're asking for xpos and replace it
+		for (UINT pindex = 0;
+			pindex < peek->addr_count &&
+			pindex < sSharedMMapPeek_R2::PEEK_LIMIT;
+			++pindex)
+		{
+			if (peek->addr[pindex] == 0x1a009)	// xpos
+			{
+				peek->data[pindex] = xpos;
+			}
+		}
+	}
 }
 
 void GameLink::InitTerminal()
