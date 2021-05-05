@@ -161,9 +161,9 @@ BEGIN
         MENUITEM "Pause When Window Inactive",  ID_OPTIONS_PAUSEINACTIVE
         POPUP "CPU Throttling"
         BEGIN
-            MENUITEM "Normal\tF1",                  ID_CPUTHROTTLING_NORMAL
-            MENUITEM "CPU Overdrive\tF2",           ID_CPUTHROTTLING_CPUOVERDRIVE
-            MENUITEM "System Maximum\tF3",          ID_CPUTHROTTLING_SYSTEMMAXIMUM
+            MENUITEM "Normal\tAlt-1",               ID_CPUTHROTTLING_NORMAL
+            MENUITEM "CPU Overdrive\tAlt-2",        ID_CPUTHROTTLING_CPUOVERDRIVE
+            MENUITEM "System Maximum\tAlt-3",       ID_CPUTHROTTLING_SYSTEMMAXIMUM
             MENUITEM "CPU Slow",                    ID_CPUTHROTTLING_CPUSLOW
         END
         MENUITEM "Ctrl+Alt+= To Reset",         ID_OPTIONS_CTRL_RESET
