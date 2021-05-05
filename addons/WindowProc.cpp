@@ -1563,46 +1563,62 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 					InterlockedExchange((LONG*)&cycles_left, 0);
 
 					// Now just used to set the check boxes correctly
-					if ((CPUThrottle == CPU_NORMAL) && (SystemThrottle == VDP_CPUSYNC) && (max_cpf > SLOW_CPF)) {
+					switch (ThrottleMode) {
+					default:
+						// force a known value
+						debug_write("Unknown throttle mode %d - resetting to normal.", ThrottleMode);
+						ThrottleMode = THROTTLE_NORMAL;
+
+					case THROTTLE_NORMAL:
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_NORMAL, MF_CHECKED);
-	                    szDefaultWindowText = AppName;
-					} else {
-						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_NORMAL, MF_UNCHECKED);
-					}
-
-					if ((CPUThrottle == CPU_NORMAL) && (SystemThrottle == VDP_CPUSYNC) && (max_cpf == SLOW_CPF)) {
-						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUSLOW, MF_CHECKED);
-						szDefaultWindowText="Classic99 - Slow CPU";
-					} else {
+						szDefaultWindowText = AppName;
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUSLOW, MF_UNCHECKED);
-					}
-
-					if ((CPUThrottle == CPU_OVERDRIVE) && (SystemThrottle == VDP_REALTIME)) {
-						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUOVERDRIVE, MF_CHECKED);
-						szDefaultWindowText="Classic99 - CPU Overdrive";
-					} else {
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUOVERDRIVE, MF_UNCHECKED);
-					}
-
-					if ((CPUThrottle == CPU_MAXIMUM) && (SystemThrottle == VDP_CPUSYNC)) {
-						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_SYSTEMMAXIMUM, MF_CHECKED);
-						szDefaultWindowText="Classic99 - System Maximum";
-					} else {
 						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_SYSTEMMAXIMUM, MF_UNCHECKED);
+						break;
+
+					case THROTTLE_SLOW:
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUSLOW, MF_CHECKED);
+						szDefaultWindowText = "Classic99 - Slow CPU";
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_NORMAL, MF_UNCHECKED);
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUOVERDRIVE, MF_UNCHECKED);
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_SYSTEMMAXIMUM, MF_UNCHECKED);
+						break;
+
+					case THROTTLE_OVERDRIVE:
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUOVERDRIVE, MF_CHECKED);
+						szDefaultWindowText = "Classic99 - CPU Overdrive";
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUSLOW, MF_UNCHECKED);
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_NORMAL, MF_UNCHECKED);
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_SYSTEMMAXIMUM, MF_UNCHECKED);
+						break;
+
+					case THROTTLE_SYSTEMMAXIMUM:
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_SYSTEMMAXIMUM, MF_CHECKED);
+						szDefaultWindowText = "Classic99 - System Maximum";
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUOVERDRIVE, MF_UNCHECKED);
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_CPUSLOW, MF_UNCHECKED);
+						CheckMenuItem(GetMenu(myWnd), ID_CPUTHROTTLING_NORMAL, MF_UNCHECKED);
+						break;
 					}
 					SetWindowText(myWnd, szDefaultWindowText);
 				}
 				break;
 
 			case ID_CPUTHROTTLING_NORMAL:
+<<<<<<< HEAD
 			case (ID_CPUTHROTTLING_NORMAL + 0x10000):
 				CPUThrottle=CPU_NORMAL;
 				SystemThrottle=VDP_CPUSYNC;
+=======
+				ThrottleMode = THROTTLE_NORMAL;
+>>>>>>> 24e55e2bac2333e7976b28460f6f3af32c3f4345
 				if (lParam != 1) max_cpf=cfg_cpf;   // lParam(1) means internal message, don't change
-				resetDAC();		// otherwise we will be way out of sync
-				SetSoundVolumes();		// unmute in case it was in slow mode
+				resetDAC();							// otherwise we will be way out of sync
+				SetSoundVolumes();					// unmute in case it was in slow mode
 				if ((lParam != 1) && (max_cpf <= SLOW_CPF)) {
 					// we've lost the configured speed.. sorry? to remove that later anyway
+					debug_write("cfg_cpf was lost, this isn't supposed to happen. Resetting.");
 					max_cpf=(hzRate==HZ50?DEFAULT_50HZ_CPF:DEFAULT_60HZ_CPF);
 					cfg_cpf=max_cpf;
 				}
@@ -1610,8 +1626,7 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_CPUTHROTTLING_CPUSLOW:
-				CPUThrottle=CPU_NORMAL;
-				SystemThrottle=VDP_CPUSYNC;
+				ThrottleMode = THROTTLE_SLOW;
 				max_cpf=SLOW_CPF;
 				resetDAC();		// just to empty it, it won't be filled in slow mode
 				MuteAudio();
@@ -1619,18 +1634,26 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_CPUTHROTTLING_CPUOVERDRIVE:
+<<<<<<< HEAD
 			case (ID_CPUTHROTTLING_CPUOVERDRIVE + 0x10000):
 				CPUThrottle=CPU_OVERDRIVE;
 				SystemThrottle=VDP_REALTIME;
+=======
+				ThrottleMode = THROTTLE_OVERDRIVE;
+>>>>>>> 24e55e2bac2333e7976b28460f6f3af32c3f4345
 				max_cpf=cfg_cpf;
 				SetSoundVolumes();		// unmute in case it was in slow mode
 				PostMessage(myWnd, WM_COMMAND, ID_OPTIONS_CPUTHROTTLING, 1);
 				break;
 
 			case ID_CPUTHROTTLING_SYSTEMMAXIMUM:
+<<<<<<< HEAD
 			case (ID_CPUTHROTTLING_SYSTEMMAXIMUM + 0x10000):
 				CPUThrottle=CPU_MAXIMUM;
 				SystemThrottle=VDP_CPUSYNC;
+=======
+				ThrottleMode = THROTTLE_SYSTEMMAXIMUM;
+>>>>>>> 24e55e2bac2333e7976b28460f6f3af32c3f4345
 				max_cpf=cfg_cpf;
 				SetSoundVolumes();		// unmute in case it was in slow mode
 				PostMessage(myWnd, WM_COMMAND, ID_OPTIONS_CPUTHROTTLING, 1);
@@ -2273,16 +2296,13 @@ INT_PTR CALLBACK OptionsBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 					slowdown_keyboard=IsDlgButtonChecked(hwnd, IDC_CHKSLOWKEY)?1:0;
 					
 					if (IsDlgButtonChecked(hwnd, IDC_THROTTLECPU)) {
-						CPUThrottle=CPU_NORMAL;
-						SystemThrottle=VDP_CPUSYNC;
+						ThrottleMode = THROTTLE_NORMAL;
 					}
 					if (IsDlgButtonChecked(hwnd, IDC_UNTHROTTLECPU)) {
-						CPUThrottle=CPU_OVERDRIVE;
-						SystemThrottle=VDP_REALTIME;
+						ThrottleMode = THROTTLE_OVERDRIVE;
 					}
 					if (IsDlgButtonChecked(hwnd, IDC_UNTHROTTLEALL)) {
-						CPUThrottle=CPU_MAXIMUM;
-						SystemThrottle=VDP_CPUSYNC;
+						ThrottleMode = THROTTLE_SYSTEMMAXIMUM;
 					}
 					{
 						// SAMS
@@ -2380,10 +2400,10 @@ INT_PTR CALLBACK OptionsBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 			
 			// default
 			CheckRadioButton(hwnd, IDC_THROTTLECPU, IDC_UNTHROTTLEALL, IDC_THROTTLECPU);
-			if ((CPUThrottle == CPU_OVERDRIVE) && (SystemThrottle == VDP_REALTIME)) {
+			if (ThrottleMode == THROTTLE_OVERDRIVE) {
 				CheckRadioButton(hwnd, IDC_THROTTLECPU, IDC_UNTHROTTLEALL, IDC_UNTHROTTLECPU);
 			}
-			if ((CPUThrottle == CPU_MAXIMUM) && (SystemThrottle == VDP_CPUSYNC)) {
+			if (ThrottleMode == THROTTLE_SYSTEMMAXIMUM) {
 				CheckRadioButton(hwnd, IDC_THROTTLECPU, IDC_UNTHROTTLEALL, IDC_UNTHROTTLEALL);
 			}
 
