@@ -2110,12 +2110,14 @@ void wrword(Word x, Word y)
 /////////////////////////////////////////////////////////
 void WindowThread() {
 	MSG msg;
-	HACCEL hAccels;		// keyboard accelerator table for the debug window
+	HACCEL hAccelsDebug;		// keyboard accelerator table for the debug window
+	HACCEL hAccelsNormal;		// keyboard accelerator table for normal window play
 	char buf[128];
 	static FILE *fp=NULL;
 	int cnt, idx, wid;
 
-	hAccels = LoadAccelerators(NULL, MAKEINTRESOURCE(DebugAccel));
+	hAccelsDebug = LoadAccelerators(NULL, MAKEINTRESOURCE(DebugAccel));
+	hAccelsNormal = LoadAccelerators(NULL, MAKEINTRESOURCE(IDR_ACCELERATOR1));
     bWindowInitComplete = true;     // we're finally up and running
 
 	while (!quitflag) {
@@ -2128,9 +2130,8 @@ void WindowThread() {
 				// shouldn't happen, since GetMessage should return 0
 				quitflag=1;
 			} 
-			
 			if (IsWindow(dbgWnd)) {
-				if (TranslateAccelerator(dbgWnd, hAccels, &msg)) {
+				if (TranslateAccelerator(dbgWnd, hAccelsDebug, &msg)) {
 					// processed (must be before IsDialogMessage)
 					continue;
 				}
@@ -2139,9 +2140,17 @@ void WindowThread() {
 					continue;
 				}
 			}
-
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);		// this will push it to the Window procedure
+			if (hAccelsNormal)
+			{
+				if (TranslateAccelerator(myWnd, hAccelsNormal, &msg))
+				{
+					debug_write("TRANSLATED %d %x", msg.wParam, msg.wParam);
+				}
+				else {
+					TranslateMessage(&msg);
+					DispatchMessage(&msg);		// this will push it to the Window procedure
+				}
+			}
 		}
 	}
 }

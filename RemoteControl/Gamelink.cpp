@@ -607,7 +607,7 @@ void GameLink::InitTerminal()
 
 bool GameLink::GetVideoNativeFormat()
 {
-	return g_use_native_format;
+	return true;
 }
 
 void GameLink::ExecTerminalMech(GameLink::sSharedMMapBuffer_R1* p_procbuf)

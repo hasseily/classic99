@@ -1595,6 +1595,7 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_CPUTHROTTLING_NORMAL:
+			case (ID_CPUTHROTTLING_NORMAL + 0x10000):
 				CPUThrottle=CPU_NORMAL;
 				SystemThrottle=VDP_CPUSYNC;
 				if (lParam != 1) max_cpf=cfg_cpf;   // lParam(1) means internal message, don't change
@@ -1618,6 +1619,7 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_CPUTHROTTLING_CPUOVERDRIVE:
+			case (ID_CPUTHROTTLING_CPUOVERDRIVE + 0x10000):
 				CPUThrottle=CPU_OVERDRIVE;
 				SystemThrottle=VDP_REALTIME;
 				max_cpf=cfg_cpf;
@@ -1626,6 +1628,7 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_CPUTHROTTLING_SYSTEMMAXIMUM:
+			case (ID_CPUTHROTTLING_SYSTEMMAXIMUM + 0x10000):
 				CPUThrottle=CPU_MAXIMUM;
 				SystemThrottle=VDP_CPUSYNC;
 				max_cpf=cfg_cpf;

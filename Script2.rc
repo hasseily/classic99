@@ -161,9 +161,9 @@ BEGIN
         MENUITEM "Pause When Window Inactive",  ID_OPTIONS_PAUSEINACTIVE
         POPUP "CPU Throttling"
         BEGIN
-            MENUITEM "Normal",                      ID_CPUTHROTTLING_NORMAL
-            MENUITEM "CPU Overdrive",               ID_CPUTHROTTLING_CPUOVERDRIVE
-            MENUITEM "System Maximum",              ID_CPUTHROTTLING_SYSTEMMAXIMUM
+            MENUITEM "Normal\tF1",                  ID_CPUTHROTTLING_NORMAL
+            MENUITEM "CPU Overdrive\tF2",           ID_CPUTHROTTLING_CPUOVERDRIVE
+            MENUITEM "System Maximum\tF3",          ID_CPUTHROTTLING_SYSTEMMAXIMUM
             MENUITEM "CPU Slow",                    ID_CPUTHROTTLING_CPUSLOW
         END
         MENUITEM "Ctrl+Alt+= To Reset",         ID_OPTIONS_CTRL_RESET
@@ -718,7 +718,14 @@ BEGIN
     VK_F1,          ID_DEBUG_PAUSE,         VIRTKEY, NOINVERT
     VK_F2,          ID_DEBUG_STEP,          VIRTKEY, NOINVERT
     VK_F3,          ID_DEBUG_STEPOVER,      VIRTKEY, NOINVERT
-    VK_F9,          ID_DEBUG_VDPCHARS,      VIRTKEY, NOINVERT
+    VK_F4,          ID_DEBUG_VDPCHARS,      VIRTKEY, NOINVERT
+END
+
+IDR_ACCELERATOR1 ACCELERATORS
+BEGIN
+    "1",            ID_CPUTHROTTLING_NORMAL, ASCII, ALT, NOINVERT
+    "2",            ID_CPUTHROTTLING_CPUOVERDRIVE, ASCII, ALT, NOINVERT
+    "3",            ID_CPUTHROTTLING_SYSTEMMAXIMUM, ASCII, ALT, NOINVERT
 END
 
 

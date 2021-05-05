@@ -66,8 +66,6 @@ UINT8* framedataRC;	// reversed framebuffer
 UINT64 iCurrentTicks;						// Used to check the repeat interval
 static std::unordered_set<UINT8> exclusionSet;		// list of VK codes that will not be passed through to the emulator
 
-static bool bVideoNativeFormat = false;
-
 bool bHardDiskIsLoaded = false;			// If HD is loaded, use it instead of floppy
 bool bFloppyIsLoaded = false;
 
@@ -336,6 +334,7 @@ void RemoteControlManager::sendOutput(UINT16 width, UINT16 height, UINT8 *pFrame
 
 // The framebuffer might have its scanlines inverted, from bottom to top
 // To send a correct bitmap out to a 3rd party program we need to reverse the scanlines
+// And set the alpha channel to 0xff
 void reverseScanlines(uint8_t* destination, uint8_t* source, uint32_t width, uint32_t height, uint8_t depth)
 {
 	uint32_t linesize = width * depth;
@@ -344,6 +343,10 @@ void reverseScanlines(uint8_t* destination, uint8_t* source, uint32_t width, uin
 	for (size_t i = 0; i < height; i++)
 	{
 		memcpy(hiln, loln, linesize);
+		for (size_t j = (depth - 1); j < linesize; j += depth)
+		{
+			hiln[j] = 0xff;
+		}
 		loln = loln + linesize;
 		hiln = hiln - linesize;
 	}

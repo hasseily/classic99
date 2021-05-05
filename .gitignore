@@ -277,3 +277,38 @@ __pycache__/
 # tools/**
 # !tools/packages.config
 
+/Data/SG3
+/Data/SG2
+/Data/SG1
+/Data/SG0
+/Data/SAV
+/Data/ROA
+/Data/PRG
+/Data/MT3
+/Data/MT2
+/Data/MT1
+/Data/MT0
+/Data/MP3
+/Data/MP2
+/Data/MP1
+/Data/MP0
+/Data/MNG
+/Data/MND
+/Data/MLG
+/Data/MH3
+/Data/MH2
+/Data/MH1
+/Data/MH0
+/Data/ME3
+/Data/ME2
+/Data/ME1
+/Data/ME0
+/Data/MB3
+/Data/MB2
+/Data/MB1
+/Data/MB0
+/Data/LOAD
+/Disks/ROAWORLD34.dsk
+/Disks/ROAWORLD12.dsk
+/Disks/ROAGAME.dsk
+/roacart.bin
