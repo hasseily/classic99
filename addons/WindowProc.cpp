@@ -1606,13 +1606,8 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_CPUTHROTTLING_NORMAL:
-<<<<<<< HEAD
 			case (ID_CPUTHROTTLING_NORMAL + 0x10000):
-				CPUThrottle=CPU_NORMAL;
-				SystemThrottle=VDP_CPUSYNC;
-=======
 				ThrottleMode = THROTTLE_NORMAL;
->>>>>>> 24e55e2bac2333e7976b28460f6f3af32c3f4345
 				if (lParam != 1) max_cpf=cfg_cpf;   // lParam(1) means internal message, don't change
 				resetDAC();							// otherwise we will be way out of sync
 				SetSoundVolumes();					// unmute in case it was in slow mode
@@ -1634,26 +1629,16 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case ID_CPUTHROTTLING_CPUOVERDRIVE:
-<<<<<<< HEAD
 			case (ID_CPUTHROTTLING_CPUOVERDRIVE + 0x10000):
-				CPUThrottle=CPU_OVERDRIVE;
-				SystemThrottle=VDP_REALTIME;
-=======
 				ThrottleMode = THROTTLE_OVERDRIVE;
->>>>>>> 24e55e2bac2333e7976b28460f6f3af32c3f4345
 				max_cpf=cfg_cpf;
 				SetSoundVolumes();		// unmute in case it was in slow mode
 				PostMessage(myWnd, WM_COMMAND, ID_OPTIONS_CPUTHROTTLING, 1);
 				break;
 
 			case ID_CPUTHROTTLING_SYSTEMMAXIMUM:
-<<<<<<< HEAD
 			case (ID_CPUTHROTTLING_SYSTEMMAXIMUM + 0x10000):
-				CPUThrottle=CPU_MAXIMUM;
-				SystemThrottle=VDP_CPUSYNC;
-=======
 				ThrottleMode = THROTTLE_SYSTEMMAXIMUM;
->>>>>>> 24e55e2bac2333e7976b28460f6f3af32c3f4345
 				max_cpf=cfg_cpf;
 				SetSoundVolumes();		// unmute in case it was in slow mode
 				PostMessage(myWnd, WM_COMMAND, ID_OPTIONS_CPUTHROTTLING, 1);
