@@ -46,7 +46,6 @@
 #define IDD_OPTGRAM                     322
 #define IDR_TIDISK                      338
 #define IDR_TIPISIM                     353
-#define IDR_ACCELERATOR1                354
 #define IDC_RADIO1                      1000
 #define IDC_RADIO2                      1001
 #define IDC_RADIO3                      1002
