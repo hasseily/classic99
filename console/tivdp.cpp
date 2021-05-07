@@ -1613,7 +1613,7 @@ void doBlit()
 	int x,y;
 	HRESULT ret;
 
-	LeaveCriticalSection(&VideoCS);
+	EnterCriticalSection(&VideoCS);
 
 	if (bShowFPS) {
 		static int cnt = 0;
