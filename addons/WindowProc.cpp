@@ -654,12 +654,13 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	RECT myrect, myrect2;
 
 	if (myWnd == hwnd) {	// Main TI window
-		switch(msg) {
+		switch (msg) {
 		case WM_INITMENUPOPUP:
 			if (IsClipboardFormatAvailable(CF_TEXT)) {
 				EnableMenuItem(GetMenu(myWnd), ID_EDITPASTE, MF_ENABLED | MF_BYCOMMAND);
 				EnableMenuItem(GetMenu(myWnd), ID_EDIT_PASTEXB, MF_ENABLED | MF_BYCOMMAND);
-			} else {
+			}
+			else {
 				EnableMenuItem(GetMenu(myWnd), ID_EDITPASTE, MF_GRAYED | MF_BYCOMMAND);
 				EnableMenuItem(GetMenu(myWnd), ID_EDIT_PASTEXB, MF_GRAYED | MF_BYCOMMAND);
 			}
@@ -673,15 +674,15 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_DISPLAYCHANGE:
 			if (NULL != tmpDC) {
 				DeleteDC(tmpDC);
-				tmpDC=CreateCompatibleDC(NULL);
+				tmpDC = CreateCompatibleDC(NULL);
 			}
 			break;
-		
+
 		case WM_PAINT:
 			hDC = BeginPaint(hwnd, &ps);
 			GetClientRect(myWnd, &myrect);
-			if (StretchMode==0) {
-				FillRect(hDC, &myrect, (HBRUSH)(COLOR_MENU+1));
+			if (StretchMode == 0) {
+				FillRect(hDC, &myrect, (HBRUSH)(COLOR_MENU + 1));
 			}
 			SetEvent(BlitEvent);
 			EndPaint(hwnd, &ps);
@@ -692,11 +693,12 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				gWindowRect.left = -1;
 				gWindowRect.top = -1;
 			}
-			quitflag=1;
+			quitflag = 1;
 			PostQuitMessage(0);
 			break;
 
 		case WM_KEYDOWN:
+			// debug_write("DOWN Key:%x lParam:%3x", wParam, lParam);
 			key[wParam]=1;
 			if (lParam&0x1000000) {
 				decode(0xe0);	// extended

@@ -423,6 +423,15 @@ dodefault:
 			if (sc < 0x80) {
 				unsigned short nThisChar;
 
+				// check for and ignore repeated characters
+				// to avoid screwing up the meta key refcounts
+				if (isextended) {
+					nThisChar = 0xe000 | sc;
+				}
+				else {
+					nThisChar = sc;
+				}
+
 				if (isextended) {
 					pDat=scan2ti994aextend[sc];
 				} else if ((bLastShift)||(lockedshiftstate)) {
@@ -430,14 +439,6 @@ dodefault:
 					lockedshiftstate=sc;
 				} else {
 					pDat=scan2ti994aflat[sc];
-				}
-
-				// check for and ignore repeated characters
-				// to avoid screwing up the meta key refcounts
-				if (isextended) {
-					nThisChar=0xe000|sc;
-				} else {
-					nThisChar=sc;
 				}
 
 				// Up codes don't autorepeat, so don't check them
@@ -583,7 +584,7 @@ dodefault:
 					}
 				}
 
-//                debug_write("up:%d this:%3d last:%3d fctn:%3d", is_up, nThisChar, nLastChar, fctnrefcount);
+                debug_write("up:%d this:%3d last:%3d fctn:%3d", is_up, nThisChar, nLastChar, fctnrefcount);
 
 			}
 			isextended=0;
