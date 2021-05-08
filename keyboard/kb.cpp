@@ -581,7 +581,7 @@ dodefault:
 					}
 				}
 
-                debug_write("up:%d this:%3d last:%3d fctn:%3d", is_up, nThisChar, nLastChar, fctnrefcount);
+                // debug_write("up:%d this:%3d last:%3d fctn:%3d", is_up, nThisChar, nLastChar, fctnrefcount);
 
 			}
 			isextended=0;
