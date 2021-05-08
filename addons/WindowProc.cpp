@@ -217,9 +217,6 @@ static char szTopMemory[6][32] = { "", "", "8300", "0000", "0000", "0000" };		//
 bool preFullSet = false;
 int preFullX, preFullY, preFullXS, preFullYS;
 
-// RIK: Hack for disabling repeat on arrow keys only
-short lastArrowKey = 0;
-
 // references
 // CartDlgProc is in makecart.cpp
 INT_PTR CALLBACK DebugBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -701,32 +698,6 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case WM_KEYDOWN:
-			if ((wParam > 0x24) && (wParam < 0x29))		// arrow keys hack to stop them autorepeating
-			{
-				if (lastArrowKey == wParam)
-				{
-					// debug_write("    Arrow key repeating -- discard");
-					break;		// do nothing, stop it from repeating
-				}
-				else {
-					// first time we see the arrow key. Make the game think it's pressed once and released
-					// debug_write("Arrow key seen the first time");
-					lastArrowKey = wParam;
-					// press it first
-					key[wParam] = 1;
-					decode(0xe0);
-					decode(wParam);
-					fKeyEverPressed = true;
-					Sleep(10);
-					// now release it
-					// debug_write("    Arrow key force released");
-					key[wParam] = 0;
-					decode(0xe0);
-					decode(0xf0);
-					decode(wParam);
-					break;
-				}
-			}
 			// debug_write("DOWN Key:%x lParam:%3x", wParam, lParam);
 			key[wParam]=1;
 			if (lParam&0x1000000) {	// bit 24 is an extended key
@@ -737,12 +708,6 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case WM_KEYUP:
-			// debug_write("UP   Key:%x lParam:%3x", wParam, lParam);
-			if ((wParam > 0x24) && (wParam < 0x29))		// arrow keys hack
-			{
-				// debug_write("Arrow key really released -- reset");
-				lastArrowKey = 0;	// reset the arrow key, it's been really released
-			}
 			key[wParam]=0;
 			if (lParam&0x1000000) { // bit 24 is an extended key
 				decode(0xe0);	// extended
