@@ -2674,6 +2674,17 @@ void CPU9900::op_brk() {
 	TriggerBreakPoint(true);
 }
 
+void CPU9900::op_quit() {
+	// Base cycles: 6
+	// 1 memory accesses:
+	//  Read instruction (already done)
+	AddCycleCount(6);
+	FormatVII;
+
+	debug_write("CODE executed QUIT opcode at PC >%04X.", GetPC());
+	PostMessage(myWnd, WM_QUIT, 0, 0);
+}
+
 void CPU9900::op_dbg() {
 	// dbg is technically an illegal opcode followed by a JMP, so
 	// it's 6+10 = 16 cycles. The Classic99 part is free ;)
@@ -2740,134 +2751,6 @@ void CPU9900::op_dbg() {
 
 	// all right, that should be good
 	debug_write(buf, GetSafeWord(D, xbBank));
-}
-
-////////////////////////////////////////////////////////////////////////
-// debug only opcodes, enabled with enableDebugOpcodes
-// Since these are technically illegal opcodes, they will take the same
-// 6 cycles here so that running on hardware has comparable performance.
-
-void CPU9900::op_norm() {
-    // Base cycles: 6
-    // 1 memory accesses:
-    //  Read instruction (already done)
-    AddCycleCount(6);
-    FormatVII;
-
-    debug_write("CODE triggered CPU normal at PC >%04X", GetPC());
-	SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_NORMAL, 0);
-}
-
-void CPU9900::op_ovrd() {
-    // Base cycles: 6
-    // 1 memory accesses:
-    //  Read instruction (already done)
-    AddCycleCount(6);
-    FormatVII;
-
-    debug_write("CODE triggered overdrive at PC >%04X", GetPC());
-	SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_CPUOVERDRIVE, 0);
-}
-
-void CPU9900::op_smax() {
-    // Base cycles: 6
-    // 1 memory accesses:
-    //  Read instruction (already done)
-    AddCycleCount(6);
-    FormatVII;
-
-    debug_write("CODE triggered system maximum at PC >%04X", GetPC());
-	SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_SYSTEMMAXIMUM, 0);
-}
-
-void CPU9900::op_brk() {
-    // Base cycles: 6
-    // 1 memory accesses:
-    //  Read instruction (already done)
-    AddCycleCount(6);
-    FormatVII;
-
-    debug_write("CODE triggered breakpoint at PC >%04X.", GetPC());
-    TriggerBreakPoint(true);
-}
-
-void CPU9900::op_quit() {
-    // Base cycles: 6
-    // 1 memory accesses:
-    //  Read instruction (already done)
-    AddCycleCount(6);
-    FormatVII;
-
-    debug_write("CODE executed QUIT opcode at PC >%04X.", GetPC());
-    PostMessage(myWnd, WM_QUIT, 0, 0);
-}
-
-void CPU9900::op_dbg() {
-    // dbg is technically an illegal opcode followed by a JMP, so
-    // it's 6+10 = 16 cycles. The Classic99 part is free ;)
-
-    // Base cycles: 16
-    // 2 memory accesses:
-    //  Read dbg instruction (already done)
-    //  Read jmp instruction (emulation skips this and reads the argument instead, should be the same timing)
-    AddCycleCount(16);
-    ADDPC(2);           // skip over the JMP instruction
-    FormatVIII_1;       // for-cost read the argument into S (matches timing of hardware which reads the JMP instead)
-                        // also gets the WR address into D
-    char buf[128+6];
-    strcpy(buf, "CODE: ");
-    // verify the heck out of this string...
-    // first, size
-    int size = 0;
-    for (int idx=0; idx<128; ++idx) {
-        if (S+idx > 0xffff) {
-            break;
-        }
-        buf[idx+6] = GetSafeCpuByte(S+idx,xbBank);
-        if (buf[idx+6] == 0) {
-            size = idx+6;
-            break;
-        }
-    }
-    if (size == 0) {
-        debug_write("Can't write debug from >%04X because string not NUL terminated.", GetPC()-4);
-        return;
-    }
-    // now make sure there's no more than one percent symbol, ignoring %%
-    int pos = -1;
-    for (int idx=0; idx<size; ++idx) {
-        if (buf[idx] != '%') continue;
-        if (buf[idx+1] == '%') {
-            // double percent is okay
-            ++idx;
-            continue;
-        }
-        if (pos > -1) {
-            debug_write("Can't write debug from >%04X because too many formats", GetPC()-4);
-            return;
-        }
-        pos = idx;
-    }
-
-    // see if it's a type we trust to print an int
-    if (pos >  -1) {
-        // legal characters in a specifier are %.- numbers and letters
-        while ((buf[pos])&&((isalnum(buf[pos]))||(strchr("%.-",buf[pos])))) {
-            if (buf[pos] == 'l') {
-                debug_write("Can't write debug from >%04X because long modifier specified", GetPC()-4);
-                return;
-            }
-            ++pos;
-        }
-        --pos;
-        if (NULL == strchr("nuxXc", buf[pos])) {
-            debug_write("Can't write debug from >%04X because untrusted type '%c'", GetPC()-4, buf[pos]);
-            return;
-        }
-    }
-
-    // all right, that should be good
-    debug_write(buf, GetSafeWord(D, xbBank));
 }
 
 ////////////////////////////////////////////////////////////////////////
