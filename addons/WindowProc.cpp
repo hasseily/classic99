@@ -705,21 +705,20 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			{
 				if (lastArrowKey == wParam)
 				{
-					// debug_write("    Arrow key repeating -- discard");
 					break;		// do nothing, stop it from repeating
 				}
 				else {
 					// first time we see the arrow key. Make the game think it's pressed once and released
-					// debug_write("Arrow key seen the first time");
 					lastArrowKey = wParam;
 					// press it first
 					key[wParam] = 1;
 					decode(0xe0);
 					decode(wParam);
 					fKeyEverPressed = true;
+					// We must do press+release serially
+					// ideally the sleep interval should depend on the CPU speed
 					Sleep(10);
 					// now release it
-					// debug_write("    Arrow key force released");
 					key[wParam] = 0;
 					decode(0xe0);
 					decode(0xf0);
