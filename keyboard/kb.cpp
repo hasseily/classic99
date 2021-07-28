@@ -70,6 +70,8 @@ extern int fJoystickActiveOnKeys;
 extern int CtrlAltReset;
 extern int gDontInvertCapsLock;
 extern int enableSpeedKeys;
+extern int enableEscape;
+extern int enableAltF4;
 extern volatile HWND dbgWnd;
 
 enum LASTMETA {
@@ -280,7 +282,7 @@ void decode(unsigned char sc)
             return;
         }
     }
-	if (enableSpeedKeys) {
+    if (enableSpeedKeys) {
 		// disable the speed keys in that case too
 		switch (sc) {
 			case VK_F6:		// CPU normal
@@ -289,6 +291,19 @@ void decode(unsigned char sc)
 			case VK_F11:	// Turbo toggle (normal/maximum)
 				is_up = 0;	// we're ignoring the whole thing, so assume the up event is complete
 				return;
+		}
+	}
+	if (enableAltF4) {
+		if ((GetAsyncKeyState(VK_MENU) & 0x8000) && (sc == VK_F4)) {
+			is_up = 0;	// ignore it
+			return;
+		}
+	}
+	if (!enableEscape) {
+		// disable escape if told to
+		if (sc == VK_ESCAPE) {
+			is_up = 0;	// we're ignoring the whole thing, so assume the up event is complete
+			return;
 		}
 	}
 

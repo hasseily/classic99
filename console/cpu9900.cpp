@@ -470,7 +470,11 @@ void CPU9900::SetX(Word x) {
 
 Word CPU9900::ExecuteOpcode(bool nopFrame) {
     if (nopFrame) {
-        in = 0x10FF;                // JMP $ - NOP, but because we don't ADDPC below it doesn't move ;)
+        in = 0x1000;                // JMP $ - NOP, but because we don't ADDPC below it doesn't move ;)
+        // note, I was confused that a nop should step back, but 0x10FF is a jump to itself forever
+        // this was breaking the HALT code because we didn't step back to ourselves. Because we
+        // didn't do the ADDPC, we were actually moving backwards in memory for the duration of the
+        // halt...
     } else {
         in=ROMWORD(PC);
         ADDPC(2);
@@ -2739,6 +2743,134 @@ void CPU9900::op_dbg() {
 }
 
 ////////////////////////////////////////////////////////////////////////
+// debug only opcodes, enabled with enableDebugOpcodes
+// Since these are technically illegal opcodes, they will take the same
+// 6 cycles here so that running on hardware has comparable performance.
+
+void CPU9900::op_norm() {
+    // Base cycles: 6
+    // 1 memory accesses:
+    //  Read instruction (already done)
+    AddCycleCount(6);
+    FormatVII;
+
+    debug_write("CODE triggered CPU normal at PC >%04X", GetPC());
+	SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_NORMAL, 0);
+}
+
+void CPU9900::op_ovrd() {
+    // Base cycles: 6
+    // 1 memory accesses:
+    //  Read instruction (already done)
+    AddCycleCount(6);
+    FormatVII;
+
+    debug_write("CODE triggered overdrive at PC >%04X", GetPC());
+	SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_CPUOVERDRIVE, 0);
+}
+
+void CPU9900::op_smax() {
+    // Base cycles: 6
+    // 1 memory accesses:
+    //  Read instruction (already done)
+    AddCycleCount(6);
+    FormatVII;
+
+    debug_write("CODE triggered system maximum at PC >%04X", GetPC());
+	SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_SYSTEMMAXIMUM, 0);
+}
+
+void CPU9900::op_brk() {
+    // Base cycles: 6
+    // 1 memory accesses:
+    //  Read instruction (already done)
+    AddCycleCount(6);
+    FormatVII;
+
+    debug_write("CODE triggered breakpoint at PC >%04X.", GetPC());
+    TriggerBreakPoint(true);
+}
+
+void CPU9900::op_quit() {
+    // Base cycles: 6
+    // 1 memory accesses:
+    //  Read instruction (already done)
+    AddCycleCount(6);
+    FormatVII;
+
+    debug_write("CODE executed QUIT opcode at PC >%04X.", GetPC());
+    PostMessage(myWnd, WM_QUIT, 0, 0);
+}
+
+void CPU9900::op_dbg() {
+    // dbg is technically an illegal opcode followed by a JMP, so
+    // it's 6+10 = 16 cycles. The Classic99 part is free ;)
+
+    // Base cycles: 16
+    // 2 memory accesses:
+    //  Read dbg instruction (already done)
+    //  Read jmp instruction (emulation skips this and reads the argument instead, should be the same timing)
+    AddCycleCount(16);
+    ADDPC(2);           // skip over the JMP instruction
+    FormatVIII_1;       // for-cost read the argument into S (matches timing of hardware which reads the JMP instead)
+                        // also gets the WR address into D
+    char buf[128+6];
+    strcpy(buf, "CODE: ");
+    // verify the heck out of this string...
+    // first, size
+    int size = 0;
+    for (int idx=0; idx<128; ++idx) {
+        if (S+idx > 0xffff) {
+            break;
+        }
+        buf[idx+6] = GetSafeCpuByte(S+idx,xbBank);
+        if (buf[idx+6] == 0) {
+            size = idx+6;
+            break;
+        }
+    }
+    if (size == 0) {
+        debug_write("Can't write debug from >%04X because string not NUL terminated.", GetPC()-4);
+        return;
+    }
+    // now make sure there's no more than one percent symbol, ignoring %%
+    int pos = -1;
+    for (int idx=0; idx<size; ++idx) {
+        if (buf[idx] != '%') continue;
+        if (buf[idx+1] == '%') {
+            // double percent is okay
+            ++idx;
+            continue;
+        }
+        if (pos > -1) {
+            debug_write("Can't write debug from >%04X because too many formats", GetPC()-4);
+            return;
+        }
+        pos = idx;
+    }
+
+    // see if it's a type we trust to print an int
+    if (pos >  -1) {
+        // legal characters in a specifier are %.- numbers and letters
+        while ((buf[pos])&&((isalnum(buf[pos]))||(strchr("%.-",buf[pos])))) {
+            if (buf[pos] == 'l') {
+                debug_write("Can't write debug from >%04X because long modifier specified", GetPC()-4);
+                return;
+            }
+            ++pos;
+        }
+        --pos;
+        if (NULL == strchr("nuxXc", buf[pos])) {
+            debug_write("Can't write debug from >%04X because untrusted type '%c'", GetPC()-4, buf[pos]);
+            return;
+        }
+    }
+
+    // all right, that should be good
+    debug_write(buf, GetSafeWord(D, xbBank));
+}
+
+////////////////////////////////////////////////////////////////////////
 // functions that are different on the F18A
 // (there will be more than just this!)
 void CPU9900::op_idleF18() {
@@ -3092,27 +3224,28 @@ void CPU9900::buildcpu()
         }
     } 
 
-	// check for special debug opcodes
-	if (enableDebugOpcodes) {
-		for (int idx = 0x0110; idx < 0x0130; ++idx) {
-			if (idx == 0x114) idx = 0x120;    // skip unused ones
+    // check for special debug opcodes
+    if (enableDebugOpcodes) {
+        for (int idx = 0x0110; idx < 0x0130; ++idx) {
+            if (idx == 0x115) idx=0x120;    // skip unused ones
 
-			if (opcode[idx] != &CPU9900::op_bad) {
-				debug_write("===============================");
-				debug_write("Opcode %X is already assigned, can't use for debug! Programmer error.", idx);
-				debug_write("===============================");
-				exit(-1);
-			}
-		}
+            if (opcode[idx] != &CPU9900::op_bad) {
+                debug_write("===============================");
+                debug_write("Opcode %X is already assigned, can't use for debug! Programmer error.", idx);
+                debug_write("===============================");
+                exit(-1);
+            }
+        }
 
-		opcode[0x0110] = &CPU9900::op_norm;
-		opcode[0x0111] = &CPU9900::op_ovrd;
-		opcode[0x0112] = &CPU9900::op_smax;
-		opcode[0x0113] = &CPU9900::op_brk;
-		for (int idx = 0x120; idx <= 0x12f; ++idx) {
-			opcode[idx] = &CPU9900::op_dbg;
-		}
-	}
+        opcode[0x0110] = &CPU9900::op_norm;
+        opcode[0x0111] = &CPU9900::op_ovrd;
+        opcode[0x0112] = &CPU9900::op_smax;
+        opcode[0x0113] = &CPU9900::op_brk;
+        opcode[0x0114] = &CPU9900::op_quit;
+        for (int idx=0x120; idx<=0x12f; ++idx) {
+            opcode[idx] = &CPU9900::op_dbg;
+        }
+    }
 
     // build the Word status lookup table
     for (i=0; i<65536; i++) {
@@ -3383,6 +3516,11 @@ void CPU9900::opcode3(Word in)
 GPUF18A::GPUF18A() {
     // build default 9900
     buildcpu();
+    pType="F18A";
+}
+
+void GPUF18A::buildcpu() {
+    CPU9900::buildcpu();
 
     // override with F18A replacements
 
@@ -3446,8 +3584,6 @@ GPUF18A::GPUF18A() {
         if (opcode[idx] == &CPU9900::op_rset) opcode[idx]=&CPU9900::op_bad;
         if (opcode[idx] == &CPU9900::op_lrex) opcode[idx]=&CPU9900::op_bad;
     }
-
-    pType="F18A";
 }
 
 void GPUF18A::reset() {

@@ -95,7 +95,6 @@
 #include "..\resource.h"
 #include "tiemul.h"
 #include "cpu9900.h"
-#include "..\SpeechDll\5220intf.h"
 #include "..\addons\rs232_pio.h"
 #include "..\keyboard\kb.h"
 #include "..\keyboard\ti.h"
@@ -149,10 +148,11 @@ extern int AudioSampleRate;				// in hz
 extern unsigned int CalculatedAudioBufferSize;		// round audiosample rate up to a multiple of frame rate
 extern CRITICAL_SECTION csAudioBuf;
 
-// speech 
-#define SPEECHUPDATECOUNT (max_cpf/5)
+// speech
+#define SPEECHUPDATETIMESPERFRAME 5
 INT16 SpeechTmp[SPEECHRATE*2];				// two seconds worth of buffer
 int nSpeechTmpPos=0;
+CRITICAL_SECTION csSpeechBuf;
 double nDACLevel=0.0;						// DAC level percentage (from cassette port) - added into the audio buffer on update
 HANDLE hSpeechBufferClearEvent=INVALID_HANDLE_VALUE;		// notification of speech buffer looping
 
@@ -187,6 +187,8 @@ int (*get_game_count)(void);                               // get the games coun
 int bEnableAppMode = 0;                                     // whether to enable App Mode
 int bSkipTitle = 0;                                         // whether to skip the master title page
 int nAutoStartCart = 0;                                     // Which cartridge to autostart on the selection screen (or 0 for none)
+int bAppLockFullScreen = 0;									// if in App mode, lock to full screen only
+int bEnableINIWrite = 1;									// not /just/ app mode, but app mode enables it
 char AppName[128];                                          // the title bar name to display instead of Classic99
 
 // debug
@@ -320,6 +322,11 @@ extern int bEnable80Columns;						// 80 column hack
 extern int bEnable128k;								// 128k hack
 extern int bF18Enabled;								// F18A support
 extern int bInterleaveGPU;							// simultaneous GPU (not really)
+extern int vdpscanline;								// used for load stats
+int statusReadLine=0;								// the line we last read status at
+int statusReadCount=0;								// how many lines since we last read status
+int statusFrameCount=0;								// entire frames missed since update
+bool statusUpdateRead = false;						// frame has finished, watch for status test again
 
 // Assorted
 char qw[80];										// temp string
@@ -336,6 +343,7 @@ unsigned int index1;								// General counter variable
 int drawspeed=0;									// flag used in display updating
 int max_cpf=DEFAULT_60HZ_CPF;						// Maximum cycles per frame (default)
 int cfg_cpf=max_cpf;								// copy of same
+int cfg_overdrive = 50;								// how much faster CPU overdrive tries for
 int slowdown_keyboard = 1;							// slowdown keyboard autorepeat in the GROM code
 int cpucount, cpuframes;							// CPU counters for timing
 int timercount;										// Used to estimate runtime
@@ -360,6 +368,8 @@ int WindowActive;                                   // true if the Classic99 win
 int SpeechEnabled;									// whether speech is enabled
 volatile int ThrottleMode = THROTTLE_NORMAL;		// overall throttling mode
 int enableSpeedKeys = 0;							// allow the INI to make F6,F7,F8,F11 available all the time
+int enableAltF4 = 0;								// allow alt+F4 to close the emulator
+int enableEscape = 1;								// allow Escape to act as Fctn-9 (back)
 
 time_t STARTTIME, ENDTIME;
 volatile long ticks;
@@ -624,6 +634,7 @@ void ReadConfig() {
         nCf7DiskSize = GetPrivateProfileInt("CF7", "Size", nCf7DiskSize, INIFILE);
     }
 
+	// NOTE: emulation\enableAltF4 is down under the video block, due to needing to set different defaults
 	// Filename used to write recorded video
 	GetPrivateProfileString("emulation", "AVIFilename", AVIFileName, AVIFileName, 256, INIFILE);
 	// Throttle mode is all in one now, from -1: THROTTLE_SLOW, THROTTLE_NORMAL, THROTTLE_OVERDRIVE, THROTTLE_SYSTEMMAXIMUM
@@ -631,8 +642,12 @@ void ReadConfig() {
 	// Proper CPU throttle (cycles per frame) - ipf is deprecated - this defines "normal" and probably should go away too
 	max_cpf=		GetPrivateProfileInt("emulation",	"maxcpf",				max_cpf,		INIFILE);
 	cfg_cpf = max_cpf;
+	// Overdrive CPU multiplier
+	cfg_overdrive=	GetPrivateProfileInt("emulation",	"overdrive",			cfg_overdrive,	INIFILE);
 	// map through certain function keys as emulator speed control
-	enableSpeedKeys = GetPrivateProfileInt("emulation", "enableSpeedKeys", enableSpeedKeys, INIFILE);
+	enableSpeedKeys = GetPrivateProfileInt("emulation", "enableSpeedKeys",		enableSpeedKeys, INIFILE);
+	// map through certain function keys as emulator speed control
+	enableEscape = GetPrivateProfileInt("emulation",    "enableEscape",		    enableEscape, INIFILE);
 	// Pause emulator when window inactive: 0-no, 1-yes
 	PauseInactive=	GetPrivateProfileInt("emulation",	"pauseinactive",		PauseInactive,	INIFILE);
 	// Disable speech if desired
@@ -640,7 +655,7 @@ void ReadConfig() {
 	// require additional control key to reset (QUIT)
 	CtrlAltReset=	GetPrivateProfileInt("emulation",	"ctrlaltreset",			CtrlAltReset,	INIFILE);
 	// override the inverted caps lock
-	gDontInvertCapsLock = !GetPrivateProfileInt("emulation", "invertcaps", !gDontInvertCapsLock, INIFILE);
+	gDontInvertCapsLock = !GetPrivateProfileInt("emulation","invertcaps",		!gDontInvertCapsLock, INIFILE);
 	// Get system type: 0-99/4, 1-99/4A, 2-99/4Av2.2
 	nSystem=		GetPrivateProfileInt("emulation",	"system",				nSystem,		INIFILE);
 	// Read flag for slowing keyboard repeat: 0-no, 1-yes
@@ -817,12 +832,25 @@ skiprestofuser:
 	if (nXSize < 64) nXSize=64;
 	nYSize = GetPrivateProfileInt("video", "ScreenY", nYSize, INIFILE);
 	if (nYSize < 64) nYSize=64;
+	// full screen lock (overrides StretchMode)
+	bAppLockFullScreen = GetPrivateProfileInt("video","LockFullScreen", bAppLockFullScreen, INIFILE);
+	if (bAppLockFullScreen) {
+		StretchMode = STRETCH_FULL;
+		enableAltF4 = 1;	// by default, allow Alt+F4
+	}
 
     // the new application mode - this can only be set manually, it's not saved
     bEnableAppMode = GetPrivateProfileInt("AppMode", "EnableAppMode", bEnableAppMode, INIFILE);
+	if (bEnableAppMode) bEnableINIWrite = 0;	// turn off the INI write unless specifically overridden
     bSkipTitle = GetPrivateProfileInt("AppMode", "SkipTitle", bSkipTitle, INIFILE);
     nAutoStartCart = GetPrivateProfileInt("AppMode", "AutoStartCart", nAutoStartCart, INIFILE);
     GetPrivateProfileString("AppMode", "AppName", "Powered by Classic99", AppName, sizeof(AppName), INIFILE);
+
+	// some late "emulation" checks
+	// so, we need to read the alt+f4 config here, AFTER we changed the default
+	enableAltF4 = GetPrivateProfileInt("emulation", "enableAltF4",	enableAltF4,   INIFILE);
+	// and also read the enableINIWrite
+	bEnableINIWrite = GetPrivateProfileInt("emulation", "enableINIWrite", bEnableINIWrite,   INIFILE);
 
 	// get screen position
 	nVideoLeft = GetPrivateProfileInt("video",		"topX",				-1,					INIFILE);
@@ -908,6 +936,11 @@ void WritePrivateProfileInt(LPCTSTR lpApp, LPCTSTR lpKey, int nVal, LPCTSTR lpFi
 void SaveConfig() {
 	int idx;
 
+	if (!bEnableINIWrite) {
+		debug_write("Skipping INI write per configuration");
+		return;
+	}
+
 	WritePrivateProfileInt(		"audio",		"max_volume",			max_volume,					INIFILE);
 	WritePrivateProfileInt(		"audio",		"samplerate",			AudioSampleRate,			INIFILE);
 	if (NULL != GetSidEnable) {
@@ -948,7 +981,9 @@ void SaveConfig() {
 	if (0 != max_cpf) {
 		WritePrivateProfileInt(	"emulation",	"maxcpf",				max_cpf,					INIFILE);
 	}
+	WritePrivateProfileInt(		"emulation",	"overdrive",			cfg_overdrive,				INIFILE);
 	WritePrivateProfileInt(		"emulation",	"enableSpeedKeys",		enableSpeedKeys,			INIFILE);
+	WritePrivateProfileInt(		"emulation",	"enableEscape",			enableEscape,	  		    INIFILE);
 	WritePrivateProfileInt(		"emulation",	"pauseinactive",		PauseInactive,				INIFILE);
 	WritePrivateProfileInt(		"emulation",	"ctrlaltreset",			CtrlAltReset,				INIFILE);
 	WritePrivateProfileInt(		"emulation",	"invertcaps",			!gDontInvertCapsLock,		INIFILE);
@@ -958,6 +993,8 @@ void SaveConfig() {
 	WritePrivateProfileInt(		"emulation",	"ps2keyboard",			ps2keyboardok,				INIFILE);
 	WritePrivateProfileInt(		"emulation",	"sams_enabled",			sams_enabled,				INIFILE);
 	WritePrivateProfileInt(		"emulation",	"sams_size",			sams_size,					INIFILE);
+	WritePrivateProfileInt(		"emulation",	"enableAltF4",			enableAltF4,				INIFILE);
+	WritePrivateProfileInt(		"emulation",	"enableINIWrite",		bEnableINIWrite,			INIFILE);
 
 	WritePrivateProfileInt(		"joysticks",	"active",				fJoy,						INIFILE);
 	WritePrivateProfileInt(		"joysticks",	"joy1mode",				joy1mode,					INIFILE);
@@ -982,6 +1019,7 @@ void SaveConfig() {
 	WritePrivateProfileInt(		"video",		"ScreenScale",			nDefaultScreenScale,		INIFILE);
 	WritePrivateProfileInt(		"video",		"ScreenX",				nXSize,						INIFILE);
 	WritePrivateProfileInt(		"video",		"ScreenY",				nYSize,						INIFILE);
+	WritePrivateProfileInt(		"video",		"LockFullScreen",		bAppLockFullScreen,			INIFILE);
 
 	WritePrivateProfileInt(		"video",		"topX",					gWindowRect.left,			INIFILE);
 	WritePrivateProfileInt(		"video",		"topY",					gWindowRect.top,			INIFILE);
@@ -1162,6 +1200,7 @@ int WINAPI WinMain( HINSTANCE hInst, HINSTANCE hInPrevInstance, LPSTR lpCmdLine,
 	InitializeCriticalSection(&DebugCS);
 	InitializeCriticalSection(&csDriveType);
 	InitializeCriticalSection(&csAudioBuf);
+	InitializeCriticalSection(&csSpeechBuf);
     InitializeCriticalSection(&TapeCS);
     InitializeCriticalSection(&csDisasm);
 
@@ -1443,7 +1482,7 @@ int WINAPI WinMain( HINSTANCE hInst, HINSTANCE hInPrevInstance, LPSTR lpCmdLine,
 	SpeechEnabled=1;			// speech is decent now
 	Recording=0;				// not recording AVI
 	slowdown_keyboard=1;		// slow down keyboard repeat when read via BASIC
-	StretchMode=2;				// dx
+	StretchMode=STRETCH_DX;		// dx
 	bUse5SpriteLimit=1;			// enable flicker by default
 	TVScanLines=1;				// on by default
 	sams_enabled=1;				// off by default
@@ -1993,9 +2032,8 @@ void fail(char *x)
 	sprintf(buf2,"Frameskip     : %d\n",drawspeed);
 	strcat(buffer,buf2);
 
-	// the messagebox fails during a normal exit in WIN32.. why is that?
+	// dump the stats to the debug log
 	OutputDebugString(buffer);
-	MessageBox(myWnd, buffer, "Classic99 Exit", MB_OK);
 
 	Sleep(600);			// give the threads a little time to shut down
 
@@ -3178,6 +3216,10 @@ void saveroms()
 //////////////////////////////////////////////////////////
 void do1()
 {
+	// TODO: instead of doing ALL the keyboard checks EVERY instruction, maybe
+	// we can split some of them off to a rotating check? Only breakpoints need
+	// to be checked EVERY instruction, and even then, maybe not EVERY.
+
 	// used for emulating idle and halts (!READY) better
 	bool nopFrame = false;
 
@@ -3268,7 +3310,7 @@ void do1()
 		    if (NULL == dbgWnd) {
 			    PostMessage(myWnd, WM_COMMAND, ID_EDIT_DEBUGGER, 0);
 			    // the dialog focus switch may cause a loss of the up event, so just fake it now
-				// TODO: this should not be needed with the filter in decode(), right??
+			    // TODO: this should not be needed with the filter in decode(), right??
 			    decode(0xe0);	// extended key
 			    decode(0xf0);
 			    decode(VK_HOME);
@@ -3305,15 +3347,34 @@ void do1()
 			SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_NORMAL, 0);
 		}
 
+	// check alt+f4 if enabled
+	if (enableAltF4) {
+		if (GetAsyncKeyState(VK_MENU)&0x8000) {
+			if (key[VK_F4]) {
+				PostMessage(myWnd, WM_QUIT, 0, 0);
+			}
+		}
+	}
+	
+	// speedKeys doesn't include slow because slow is too slow to be useful
+	// to a non-debugger. Those people can change the CPU speed in config instead.
+	// ... someone will complain someday. ;) 5/5/2021
+	if (enableSpeedKeys) {
+		// CPU normal
+		if (key[VK_F6]) {
+			key[VK_F6]=0;
+			SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_NORMAL, 0);
+		}
+
 		// cpu overdrive
 		if (key[VK_F7]) {
-			key[VK_F7] = 0;
+			key[VK_F7]=0;
 			SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_CPUOVERDRIVE, 0);
 		}
 
 		// system maximum
 		if (key[VK_F8]) {
-			key[VK_F8] = 0;
+			key[VK_F8]=0;
 			SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_SYSTEMMAXIMUM, 0);
 		}
 
@@ -3330,7 +3391,6 @@ void do1()
 				DoFastForward();
 			}
 		}
-
 	} // speedkeys
 
 	// Control keys - active only with the debug view open in PS/2 mode
@@ -3467,7 +3527,7 @@ void do1()
 			if (GetAsyncKeyState(VK_CONTROL)&0x8000) {
 				SaveScreenshot(true, true);
 			} else {
-			SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_NORMAL, 0);
+				SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_NORMAL, 0);
 			}
 		}
 
@@ -3478,11 +3538,11 @@ void do1()
 			if (GetAsyncKeyState(VK_CONTROL)&0x8000) {
 				SendMessage(myWnd, WM_COMMAND, ID_LAYERS_DISABLESPRITES, 0);
 			} else {
-			SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_CPUOVERDRIVE, 0);
+				SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_CPUOVERDRIVE, 0);
 			}
 		}
 
-		// toggle background / cpu slow (ctrl)
+		// toggle background (ctrl) / system maximum (normal)
 		if (key[VK_F8]) {
 			key[VK_F8]=0;
 
@@ -3505,7 +3565,7 @@ void do1()
 			key[VK_F10]=0;
 			DoMemoryDump();
 		}
-
+		
 		// toggle turbo (same as speedkeys)
 		if (key[VK_F11]) {
 			key[VK_F11] = 0;
@@ -3579,7 +3639,7 @@ void do1()
 							if (PasteCount==0) {
 								if (((*PasteIndex>31)&&(*PasteIndex<127))||(*PasteIndex==13)) {
 									if (nSystem == 0) {
-										// TI-99/4A code is different - it expects to get the character
+										// TI-99/4 code is different - it expects to get the character
 										// from GROM, so we need to hack 8375 after it's written
 										Word WP = pCurrentCPU->GetWP();
 										wcpubyte(0x8375, toupper(*PasteIndex));
@@ -3797,23 +3857,21 @@ void do1()
 				total_cycles_looped=true;
 				speech_cycles=total_cycles;
 			} else {
-				// check speech
-				if ((max_cpf > 0) && (SPEECHUPDATECOUNT > 0)) {
-					if (total_cycles - speech_cycles >= (unsigned)SPEECHUPDATECOUNT) {
-						while (total_cycles - speech_cycles >= (unsigned)SPEECHUPDATECOUNT) {
+				// at 5 times per frame that's 300 updates per second, which at 8khz is 26.6 samples
+				if ((max_cpf > 0) && (SPEECHUPDATETIMESPERFRAME > 0)) {
+					if (total_cycles - speech_cycles >= (unsigned)(max_cpf/SPEECHUPDATETIMESPERFRAME)) {
+						while (total_cycles - speech_cycles >= (unsigned)(max_cpf/SPEECHUPDATETIMESPERFRAME)) {
 							static int nCnt=0;
 							int nSamples=26;
 							// should only be once
-							// now we're expecting 1/300th of a second, which at 8khz
-							// is 26.6 samples
-							nCnt++;
+							++nCnt;
 							if (nCnt > 2) {	// handle 2/3
 								nCnt=0;
 							} else {
 								nSamples++;
 							} 
 							SpeechUpdate(nSamples);
-							speech_cycles+=SPEECHUPDATECOUNT;
+							speech_cycles+=(max_cpf/SPEECHUPDATETIMESPERFRAME);
 						}
 					}
 				}
@@ -4431,7 +4489,7 @@ void wspeechbyte(Word x, Byte c)
 	if ((SpeechWrite)&&(SpeechEnabled)) {
 		if (!SpeechWrite(c, CPUSpeechHalt)) {
 			if (!CPUSpeechHalt) {
-				debug_write("Speech halt triggered.");
+//				debug_write("Speech halt triggered.");
 				CPUSpeechHalt=true;
 				CPUSpeechHaltByte=c;
 				pCPU->StartHalt(HALT_SPEECH);
@@ -4442,23 +4500,24 @@ void wspeechbyte(Word x, Byte c)
 		} else {
 			// must be unblocked!
 			if (CPUSpeechHalt) {
-				debug_write("Speech halt cleared at %d cycles.", cnt*10);
+//				debug_write("Speech halt cleared at %d cycles.", cnt*10);
 			}
 			// always clear it, just to be safe
 			pCPU->StopHalt(HALT_SPEECH);
 			CPUSpeechHalt = false;
 			cnt = 0;
+			// speech chip, if attached, writes eat 64 additional cycles (verified hardware)
+			// but we don't eat those cycles if we are halted, to allow finer grain resolution
+			// of the halt...?
+			pCurrentCPU->AddCycleCount(64);
 		}
-        // speech chip, if attached, writes eat 64 additional cycles (verified hardware)
-        // TODO: not verified if this is still true after a halt occurs, but since a halt
-        // is variable length, maybe it doesn't matter...
-		pCurrentCPU->AddCycleCount(64);
 	}
 }
 
 //////////////////////////////////////////////////////
 // Speech Update function - runs every x instructions
 // Pass in number of samples to process.
+// This is called 300 times per second
 //////////////////////////////////////////////////////
 void SpeechUpdate(int nSamples) {
 	if ((speechbuf==NULL) || (SpeechProcess == NULL)) {
@@ -4475,27 +4534,42 @@ void SpeechUpdate(int nSamples) {
 		return;
 	}
 
+	EnterCriticalSection(&csSpeechBuf);
 	SpeechProcess((unsigned char*)&SpeechTmp[nSpeechTmpPos], nSamples);
 	nSpeechTmpPos+=nSamples;
+	LeaveCriticalSection(&csSpeechBuf);
 }
 
+// this is called 60 times per second
 void SpeechBufferCopy() {
 	DWORD iRead, iWrite;
 	Byte *ptr1, *ptr2;
 	DWORD len1, len2;
-	static DWORD lastRead=0;
+	static DWORD lastWrite=0;
+
+	// mixing with the main audio buffer
+	return;
 
 	if (nSpeechTmpPos == 0) {
 		// no data to write
 		return;
 	}
 
+	EnterCriticalSection(&csSpeechBuf);
+
 	// just for statistics
 	speechbuf->GetCurrentPosition(&iRead, &iWrite);
-//	debug_write("Read/Write bytes: %5d/%5d", iRead-lastRead, nSpeechTmpPos*2);
-	lastRead=iRead;
+	if (iWrite > lastWrite) {
+		debug_write("Speech write gap of %d (read=%d, write=%d, expected %d)", iWrite-lastWrite, iRead, iWrite, lastWrite);
+	} else if (iWrite < lastWrite) {
+		debug_write("Speech write over of %d (read=%d, write=%d, expected %d)", lastWrite-iWrite, iRead, iWrite, lastWrite);
+	} else {
+		debug_write("Speech write ok");
+	}
+	lastWrite=iWrite+nSpeechTmpPos*2;	// this is where we ENDED last write
 
-	if (SUCCEEDED(speechbuf->Lock(iWrite, nSpeechTmpPos*2, (void**)&ptr1, &len1, (void**)&ptr2, &len2, DSBLOCK_FROMWRITECURSOR))) 
+	// Note: flags make lock ignore the write cursor, but it should be about the same
+	if (SUCCEEDED(speechbuf->Lock(iWrite, nSpeechTmpPos*2, (void**)&ptr1, &len1, (void**)&ptr2, &len2, 0 /*DSBLOCK_FROMWRITECURSOR*/))) 
 	{
 		memcpy(ptr1, SpeechTmp, len1);
 		if (len2 > 0) {							// handle wraparound
@@ -4509,6 +4583,8 @@ void SpeechBufferCopy() {
 //		debug_write("Speech buffer lock failed");
 		// don't reset the buffer, we may get it next time
 	}
+
+	LeaveCriticalSection(&csSpeechBuf);
 }
 
 //////////////////////////////////////////////////////
@@ -4621,9 +4697,28 @@ Byte rvdpbyte(Word x, READACCESSTYPE rmw)
 		VDPS&=0x1f;			// top flags are cleared on read (tested on hardware)
 		vdpaccess=0;		// reset byte flag
 
+		// track polling for interrupt
+		if (statusUpdateRead) {
+			// new frame, first access since frame was reset by reading the status register, so remember when it was
+			statusUpdateRead = false;
+			statusReadLine = vdpscanline;
+			// calculate scanlines since interrupt pulse
+			if (vdpscanline > 192+27) {
+				statusReadCount = 262*statusFrameCount + (vdpscanline-192-27);
+			} else {
+				statusReadCount = 262*statusFrameCount + (vdpscanline+(262-(192+27)));
+			}
+		}
+		if (z & VDPS_INT) {
+			// we cleared an interrupt, so go ahead and allow it again
+			statusUpdateRead = true;
+			statusFrameCount = 0;
+		} 
+
 		// TODO: hack to make Miner2049 work. If we are reading the status register mid-frame,
 		// and neither 5S or F are set, return a random sprite index as if we were counting up.
 		// Remove this when the proper scanline VDP is in. (Miner2049 cares about bit 0x02)
+		// (This is still not valid to remove because sprites are still not processed in real time)
 		if ((z&(VDPS_5SPR|VDPS_INT)) == 0) {
 			// This search code borrowed from the sprite draw code
 			int highest=31;
@@ -6102,7 +6197,7 @@ int rcru(Word ad)
 
 	if ((CRU[0]==1)&&(ad<16)&&(ad>0)) {				// read elapsed time from timer
 		if (ad == 15) {
-            // this reflects the state of the interrupt request PIN, so 
+			// this reflects the state of the interrupt request PIN, so 
             // it's a little more complex than just one interrupt. Technically, it's
             // ALL interrupts that run through the 9901, and is affected by the mask.
             // For now, we just have the VDP, eventually we'll have others.
@@ -6154,6 +6249,19 @@ int rcru(Word ad)
 	// are we checking VDP interrupt?
     // it should reflect on bit 15 in clock mode, too, IF !INT2 is enabled in the mask (done above)
 	if (ad == 0x02) {		// that's the only int we have
+		// TODO: should I put this on clock mode bit 15? Who would do that?
+		if (statusUpdateRead) {
+			// new frame, first access since frame was reset by reading the status register, so remember when it was
+			statusUpdateRead = false;
+			statusReadLine = vdpscanline;
+			// calculate scanlines since interrupt pulse
+			if (vdpscanline > 192+27) {
+				statusReadCount = 262*statusFrameCount + (vdpscanline-192-27);
+			} else {
+				statusReadCount = 262*statusFrameCount + (vdpscanline+(262-(192+27)));
+			}
+		}
+			
 		if (VDPINT) {
 			return 0;		
 		} else {
@@ -6420,7 +6528,7 @@ void __cdecl TimerThread(void *)
 
 						case THROTTLE_OVERDRIVE:
 						case THROTTLE_SYSTEMMAXIMUM:
-							InterlockedExchange((LONG*)&cycles_left, max_cpf * 50);
+							InterlockedExchange((LONG*)&cycles_left, max_cpf * cfg_overdrive);
 							break;
 						}
 
@@ -6686,8 +6794,8 @@ void TriggerBreakPoint(bool bForce, bool openDebugger) {
 	// finally, open the debugger if it's not open (unless we are told not to!)
 	if ((openDebugger) && (NULL == dbgWnd)) {
 		// Send so that we wait for the reply
-		SendMessage(myWnd, WM_COMMAND, ID_EDIT_DEBUGGER, 0);
-		bDebugDirty = true;
+	    SendMessage(myWnd, WM_COMMAND, ID_EDIT_DEBUGGER, 0);
+		bDebugDirty=true;
 		SetEvent(hDebugWindowUpdateEvent);
 	}
 }

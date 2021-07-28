@@ -238,6 +238,7 @@ public:		// type protection later. Make work today.
 	void op_smax();
 	void op_brk();
 	void op_dbg();
+	void op_quit();
 
 	// F18 specific versions of opcodes (here to make the function pointers work better)
 	void op_idleF18();
@@ -256,7 +257,7 @@ public:		// type protection later. Make work today.
 	////////////////////////////////////////////////////////////////////////
 	// Fill the CPU Opcode Address table
 	////////////////////////////////////////////////////////////////////////
-	void buildcpu();
+	virtual void buildcpu();
 	void opcode0(Word in);
 	void opcode02(Word in);
 	void opcode03(Word in);
@@ -277,6 +278,7 @@ class GPUF18A:public CPU9900 {
 public:		// type protection later. Make work today.
 	GPUF18A();
 	void reset() override;
+	void buildcpu() override;
 
 	/////////////////////////////////////////////////////////////////////
 	// Wrapper functions for memory access
