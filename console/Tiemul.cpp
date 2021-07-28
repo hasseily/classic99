@@ -3337,16 +3337,6 @@ void do1()
         }
 	}
 
-	// speedKeys doesn't include slow because slow is too slow to be useful
-	// to a non-debugger. Those people can change the CPU speed in config instead.
-	// ... someone will complain someday. ;) 5/5/2021
-	if (enableSpeedKeys) {
-		// CPU normal
-		if (key[VK_F6]) {
-			key[VK_F6] = 0;
-			SendMessage(myWnd, WM_COMMAND, ID_CPUTHROTTLING_NORMAL, 0);
-		}
-
 	// check alt+f4 if enabled
 	if (enableAltF4) {
 		if (GetAsyncKeyState(VK_MENU)&0x8000) {
