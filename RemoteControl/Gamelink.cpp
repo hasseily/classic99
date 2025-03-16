@@ -571,8 +571,8 @@ void GameLink::UpdatePeekInfo(sSharedMMapPeek_R2* peek, const UINT8* p_sysmem)
 	{
 		UINT8 xpos = p_sysmem[0x1a009];
 		const UINT8 ypos = p_sysmem[0x1a007];
-		const UINT8 slant = p_sysmem[0x1a833];
-		const UINT8 rows = p_sysmem[0x1a82d];
+		const UINT8 slant = p_sysmem[0x1a7e3];	// was 0x1a833, 0x1a835
+		const UINT8 rows = p_sysmem[0x1a7dd];	// was 0x1a82d, 0x1a82f
 		switch (slant)
 		{
 		case 0:	// left
