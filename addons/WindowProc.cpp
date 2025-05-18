@@ -701,6 +701,24 @@ LONG_PTR FAR PASCAL myproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case WM_KEYDOWN:
+			/*
+			if ((wParam == VK_HOME))
+			{
+				// Hack to press and release the '2' key for gambling by using the HOME key
+				key[0x32] = 1;	// the '2' key
+				// decode(0xe0);
+				decode(0x32);
+				fKeyEverPressed = true;
+				// We must do press+release serially
+				// ideally the sleep interval should depend on the CPU speed
+				Sleep(10);
+				// now release it
+				key[0x32] = 0;
+				// decode(0xe0);
+				decode(0xf0);
+				decode(0x32);
+			}
+			*/
 			if ((wParam > 0x24) && (wParam < 0x29))		// arrow keys hack to stop them autorepeating
 			{
 				if (lastArrowKey == wParam)

@@ -13,10 +13,12 @@
 // 	- A special terminal-style interface to pass to the emulator commands that are not keystrokes (reset, quit, pause, etc...)
 //
 
-#include "../console/tiemul.h"
 #include <Windows.h>
 #include "Gamelink.h"
 #include <algorithm>
+
+// For Sending RESET, PAUSE... messages
+#include "../console/tiemul.h"
 #include "../resource.h"
 
 //------------------------------------------------------------------------------
