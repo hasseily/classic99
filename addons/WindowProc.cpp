@@ -137,7 +137,7 @@ extern int bShowFPS;
 extern int bShowKeyboard;
 // sams config
 extern int sams_enabled, sams_size;
-extern Byte staticCPU[0x10000];					// main memory for debugger
+extern Byte* staticCPU;					// main memory for debugger
 Byte ReadRawAMS(int address);
 void WriteRawAMS(int address, int value);
 void dumpMapperRegisters();
